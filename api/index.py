@@ -34,7 +34,7 @@ def api_root() -> dict:
     return {
         "name": "AI Platform",
         "version": __version__,
-        "status": "protected-foundation",
+        "status": "foundation",
         "model_execution": "authenticated-and-capability-gated",
     }
 

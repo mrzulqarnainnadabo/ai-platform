@@ -9,5 +9,9 @@ description = "Provider-neutral AI platform substrate"
 requires-python = ">=3.10"
 dependencies = []
 
+[tool.setuptools.packages.find]
+include = ["ai_platform*"]
+exclude = ["api*", "supabase*", "tests*"]
+
 [tool.pytest.ini_options]
 testpaths = ["tests"]

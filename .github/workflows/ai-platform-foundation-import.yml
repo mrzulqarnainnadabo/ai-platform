@@ -1,6 +1,8 @@
 name: AI Platform Foundation Import
 
 on:
+  push:
+    branches: [main]
   workflow_dispatch:
     inputs:
       mode:

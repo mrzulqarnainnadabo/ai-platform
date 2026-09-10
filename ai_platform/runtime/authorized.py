@@ -30,15 +30,22 @@ class AuthorizedModelRuntime:
                 raise HumanApprovalRequiredError(decision.reason)
         return cap
 
+    @staticmethod
+    def _validate_tenant(auth: AuthorizationContext, context: Optional[ExecutionContext]) -> None:
+        if context is not None and context.tenant_id != auth.identity.tenant_id:
+            raise PolicyDeniedError("Authorization tenant does not match execution tenant")
+
     async def generate(self, auth: AuthorizationContext, messages: List[Message], config: ModelConfig,
                        provider_name: str, context: Optional[ExecutionContext] = None,
                        approval: Optional[HumanApproval] = None) -> RuntimeResult:
+        self._validate_tenant(auth, context)
         self._authorize(auth, Capability.MODEL_GENERATE.value, approval)
         return await self.runtime.generate(messages, config, provider_name, context)
 
     async def stream(self, auth: AuthorizationContext, messages: List[Message], config: ModelConfig,
                      provider_name: str, context: Optional[ExecutionContext] = None,
                      approval: Optional[HumanApproval] = None) -> AsyncGenerator[RuntimeResult, None]:
+        self._validate_tenant(auth, context)
         self._authorize(auth, Capability.MODEL_STREAM.value, approval)
         async for result in self.runtime.stream(messages, config, provider_name, context):
             yield result

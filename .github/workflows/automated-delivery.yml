@@ -1,0 +1,140 @@
+name: Automated Delivery & Governance Gate
+
+on:
+  pull_request:
+    branches: [main]
+    types: [opened, synchronize, reopened, labeled, unlabeled]
+  push:
+    branches:
+      - 'jules/**'
+      - 'grok/**'
+      - 'automation/**'
+      - 'dependabot/**'
+
+permissions:
+  contents: write
+  pull-requests: write
+  checks: read
+  statuses: read
+
+jobs:
+  auto-pr-creation:
+    if: github.event_name == 'push' && github.ref_name != 'main'
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout Repository
+        uses: actions/checkout@v4
+
+      - name: Create Pull Request if missing
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          BRANCH: ${{ github.ref_name }}
+        run: |
+          set -euo pipefail
+          EXISTING_PR=$(gh pr list --head "$BRANCH" --json number --jq '.[0].number' 2>/dev/null || true)
+          if [ -n "$EXISTING_PR" ]; then
+            echo "PR #$EXISTING_PR already exists for branch $BRANCH."
+          else
+            echo "Creating automated PR for branch $BRANCH..."
+            gh pr create \
+              --base main \
+              --head "$BRANCH" \
+              --title "auto: delivery pipeline update for $BRANCH" \
+              --body "Automated pull request generated for agent branch \`$BRANCH\`."
+          fi
+
+  classify-and-deliver:
+    if: github.event_name == 'pull_request'
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout Repository
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Classify Changed Files & Policy Risk
+        id: classify
+        env:
+          BASE_REF: ${{ github.event.pull_request.base.sha }}
+          HEAD_REF: ${{ github.event.pull_request.head.sha }}
+        run: |
+          set -euo pipefail
+          echo "Comparing $BASE_REF...$HEAD_REF"
+
+          # Ensure git diff succeeds cleanly; fail step if refs are invalid
+          CHANGED_FILES=$(git diff --name-only "$BASE_REF" "$HEAD_REF")
+          echo "Changed files:"
+          echo "$CHANGED_FILES"
+
+          HIGH_RISK=false
+          GATED_REASONS=""
+
+          for file in $CHANGED_FILES; do
+            case "$file" in
+              .github/workflows/*)
+                HIGH_RISK=true
+                GATED_REASONS="${GATED_REASONS}\n- Workflow definition modified: \`$file\`"
+                ;;
+              PLATFORM_GOVERNANCE.md)
+                HIGH_RISK=true
+                GATED_REASONS="${GATED_REASONS}\n- Governance policy modified: \`$file\`"
+                ;;
+              PLATFORM_ARCHITECTURE.md)
+                HIGH_RISK=true
+                GATED_REASONS="${GATED_REASONS}\n- Platform architecture modified: \`$file\`"
+                ;;
+              PLATFORM_STRATEGY.md)
+                HIGH_RISK=true
+                GATED_REASONS="${GATED_REASONS}\n- Platform strategy modified: \`$file\`"
+                ;;
+              AGENTS.md)
+                HIGH_RISK=true
+                GATED_REASONS="${GATED_REASONS}\n- Agent authority rules modified: \`$file\`"
+                ;;
+              platform/core/*|platform/policies/*|platform/security/*)
+                HIGH_RISK=true
+                GATED_REASONS="${GATED_REASONS}\n- Core platform security/kernel modified: \`$file\`"
+                ;;
+            esac
+          done
+
+          if [ "$HIGH_RISK" = "true" ]; then
+            echo "risk=HIGH_RISK" >> "$GITHUB_OUTPUT"
+            echo "reasons<<EOF" >> "$GITHUB_OUTPUT"
+            echo -e "$GATED_REASONS" >> "$GITHUB_OUTPUT"
+            echo "EOF" >> "$GITHUB_OUTPUT"
+          else
+            echo "risk=SAFE_AUTOMERGE" >> "$GITHUB_OUTPUT"
+            echo "reasons=Routine safe changes (documentation, tests, isolated examples)." >> "$GITHUB_OUTPUT"
+          fi
+
+      - name: Handle High-Risk Gated PR
+        if: steps.classify.outputs.risk == 'HIGH_RISK'
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          PR_NUMBER: ${{ github.event.pull_request.number }}
+          REASONS: ${{ steps.classify.outputs.reasons }}
+        run: |
+          echo "PR #$PR_NUMBER is classified as HIGH-RISK. Auto-merge disabled."
+          COMMENT_BODY="### 🛑 Automated Delivery Gate: High-Risk Review Required
+
+This PR contains changes that alter platform security, governance, workflows, or kernel contracts:
+$REASONS
+
+**Action Required:** Auto-merge is disabled for this PR. It requires manual architectural review by the designated review gate (ChatGPT) before merging."
+
+          gh pr comment "$PR_NUMBER" --body "$COMMENT_BODY" || true
+
+      - name: Enable Auto-Merge for Safe PR
+        if: steps.classify.outputs.risk == 'SAFE_AUTOMERGE'
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          PR_NUMBER: ${{ github.event.pull_request.number }}
+        run: |
+          echo "PR #$PR_NUMBER is classified as SAFE. Enabling auto-merge..."
+          if gh pr merge "$PR_NUMBER" --auto --squash; then
+            echo "Auto-merge enabled for PR #$PR_NUMBER."
+          else
+            echo "Notice: Auto-merge could not be set via GitHub API for PR #$PR_NUMBER."
+            echo "Ensure GitHub Auto-Merge is enabled in repository settings."
+          fi

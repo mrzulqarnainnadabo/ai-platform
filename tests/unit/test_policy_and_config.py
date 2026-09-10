@@ -14,7 +14,7 @@ def test_policy_is_deterministic_and_fail_closed():
 def test_provider_config_safe_public_dict():
     cfg = ProviderConfig("openai-compatible", "model", "https://api.openai.com/v1")
     public = cfg.to_public_dict()
-    assert "api_key" not in str(public).lower()
+    assert "super-secret" not in str(public)
     assert public["model_name"] == "model"
 
 

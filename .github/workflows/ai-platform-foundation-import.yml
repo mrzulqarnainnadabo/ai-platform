@@ -57,10 +57,14 @@ jobs:
           rsync -a --delete \
             --exclude='.git/' \
             --exclude='.github/workflows/ai-platform-foundation-import.yml' \
+            --exclude='.github/workflows/platform-ci.yml' \
             --exclude='README.md' \
             --exclude='UPSTREAM_FOUNDATION.md' \
             --exclude='PLATFORM_ARCHITECTURE.md' \
             --exclude='PLATFORM_GOVERNANCE.md' \
+            --exclude='AGENTS.md' \
+            --exclude='docs/ROADMAP.md' \
+            --exclude='docs/audit/' \
             /tmp/awesome-llm-apps/ ./
 
       - name: Record upstream provenance

@@ -1,0 +1,73 @@
+name: AI Platform Foundation Import
+
+on:
+  workflow_dispatch:
+    inputs:
+      mode:
+        description: "Import or refresh the awesome-llm-apps foundation"
+        required: true
+        default: "import"
+        type: choice
+        options:
+          - import
+          - refresh
+  schedule:
+    - cron: "17 3 * * 1"
+
+permissions:
+  contents: write
+
+concurrency:
+  group: foundation-import
+  cancel-in-progress: false
+
+jobs:
+  sync-foundation:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout platform repository
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Configure Git
+        run: |
+          git config user.name "ai-platform-bot"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+
+      - name: Fetch upstream foundation
+        run: |
+          rm -rf /tmp/awesome-llm-apps
+          git clone --depth 1 https://github.com/Shubhamsaboo/awesome-llm-apps.git /tmp/awesome-llm-apps
+
+      - name: Import upstream files without replacing platform automation
+        run: |
+          rsync -a --delete \
+            --exclude='.git/' \
+            --exclude='.github/workflows/ai-platform-foundation-import.yml' \
+            /tmp/awesome-llm-apps/ ./
+
+      - name: Record upstream provenance
+        run: |
+          cat > UPSTREAM_FOUNDATION.md <<'EOF'
+          # Upstream Foundation
+
+          This repository incorporates material from:
+
+          - Source: https://github.com/Shubhamsaboo/awesome-llm-apps
+          - License: Apache License 2.0
+
+          The imported source is a foundation for the AI Platform and is not represented as original authorship by this project. Preserve applicable copyright, license, NOTICE, and attribution requirements when modifying or redistributing upstream material.
+
+          Platform-specific architecture, code, documentation, and modifications added by `mrzulqarnainnadabo/ai-platform` are maintained separately from the upstream project's authorship.
+          EOF
+
+      - name: Commit imported foundation
+        run: |
+          git add -A
+          if git diff --cached --quiet; then
+            echo "No upstream changes to import."
+            exit 0
+          fi
+          git commit -m "chore: import awesome-llm-apps foundation"
+          git push origin HEAD:main

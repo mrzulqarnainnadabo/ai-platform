@@ -1,83 +1,193 @@
-# Target Architecture Proposal — AI Platform
+# Architecture Proposal — AI Platform (Phase 1.1 Correction)
 
-## 1. Architectural Philosophy
+## 1. Executive Summary & Structural Correction
 
-The AI Platform adopts a **14-Layer Target Architecture** designed to unify heterogeneous AI capabilities into a cohesive, secure, and production-grade platform.
+This document revises the initial 14-layer architecture into a practical, highly maintainable **5-Tier Conceptual Architecture** with **Cross-Cutting Controls**.
 
----
-
-## 2. Target 14-Layer Platform Stack
-
-```
-+-----------------------------------------------------------------------+
-| 14. APPLICATIONS (ISEYC Civic Brain, Financial Suite, DevPulse AI)   |
-+-----------------------------------------------------------------------+
-| 13. SECURITY & GOVERNANCE (Human Approvals, RBAC, Secret Guard)       |
-+-----------------------------------------------------------------------+
-| 12. OBSERVABILITY & TELEMETRY (OpenTelemetry, Audit Logs, Tracing)    |
-+-----------------------------------------------------------------------+
-| 11. EVALUATION (Evals Runner, Benchmarks, Quality Assurance)          |
-+-----------------------------------------------------------------------+
-| 10. VOICE (Audio Streaming, Speech-to-Text / Text-to-Speech Adapters)  |
-+-----------------------------------------------------------------------+
-| 9. EXPERIENCE & UI (Unified Chat Workspace, Generative UI Widgets)   |
-+-----------------------------------------------------------------------+
-| 8. MULTI-AGENT ORCHESTRATION (Router, Event Bus, Handoff Protocol)    |
-+-----------------------------------------------------------------------+
-| 7. TOOLS / MCP / CONNECTORS (FastMCP Registry, Tool Capability Boundaries)|
-+-----------------------------------------------------------------------+
-| 6. MEMORY (Session, Short-Term, Long-Term Mem0 / Vector Store)        |
-+-----------------------------------------------------------------------+
-| 5. KNOWLEDGE & RAG (Document Ingestion, Chunking, Retrieval, Hybrid)  |
-+-----------------------------------------------------------------------+
-| 4. SKILLS (Modular Executable Capabilities, Versioned Skill Manifests)|
-+-----------------------------------------------------------------------+
-| 3. AGENT REGISTRY (Metadata, Lifecycle, Capability Discovery)         |
-+-----------------------------------------------------------------------+
-| 2. AGENT RUNTIME (Common Execution Loop, State Machine, Timeouts)     |
-+-----------------------------------------------------------------------+
-| 1. CORE PLATFORM (Config, Provider Abstractions, Identity, Telemetry)  |
-+-----------------------------------------------------------------------+
-```
+Rather than enforcing 14 rigid, sequential layers where every component must pass through every layer, the corrected architecture separates the **Platform Kernel**, **Capability Services**, **Agent System**, **Optional Orchestration**, and **Applications**.
 
 ---
 
-## 3. Provider Abstraction Strategy
+## 2. The 5-Tier Conceptual Architecture
 
-Model providers are strictly decoupled behind provider-neutral interfaces:
+```
+┌─────────────────────────────────────────────────────────────────────────┐
+│ 5. APPLICATIONS (Flagship: ISEYC Civic Brain | Business AI | Doc AI)   │
+└─────────────────────────────────────────────────────────────────────────┘
+                                     │
+┌────────────────────────────────────▼────────────────────────────────────┐
+│ 4. OPTIONAL ORCHESTRATION (Workflows | Routing | Multi-Agent Handoffs)  │
+│    *Simple agents do NOT depend on orchestration!                        │
+└────────────────────────────────────┬────────────────────────────────────┘
+                                     │
+┌────────────────────────────────────▼────────────────────────────────────┐
+│ 3. AGENT SYSTEM (Registry | Manifests | Capabilities | Evaluation)       │
+└────────────────────────────────────┬────────────────────────────────────┘
+                                     │
+┌────────────────────────────────────▼────────────────────────────────────┐
+│ 2. CAPABILITY SERVICES (Tools | Skills | MCP Connectors | RAG | Memory) │
+└────────────────────────────────────┬────────────────────────────────────┘
+                                     │
+┌────────────────────────────────────▼────────────────────────────────────┐
+│ 1. PLATFORM KERNEL (Identity | Config | Provider Abstraction | Runtime) │
+└─────────────────────────────────────────────────────────────────────────┘
+
+===========================================================================
+ CROSS-CUTTING CONTROLS (Applied across ALL 5 tiers):
+ Security | Authorization | Governance | Auditability | Observability | Evals
+===========================================================================
+```
+
+### Tier Descriptions
+
+#### Tier 1: PLATFORM KERNEL (Minimal Trusted Foundation)
+- **Identity & Authorization**: Tenant ID, user/agent principal, role assignment.
+- **Configuration**: Environment variables, feature flags, system settings.
+- **Model / Provider Abstraction**: Provider-neutral interfaces (`IModelProvider`) supporting streaming, structured outputs, tool calls, and usage telemetry.
+- **Agent Runtime Contracts**: Base execution loop, lifecycle states, cancellation, timeouts.
+- **Capabilities & Policies**: Policy engine validating capability requests.
+- **Events & Errors**: OpenTelemetry structured event schema and standardized error hierarchy.
+
+#### Tier 2: CAPABILITY SERVICES (Reusable Primitives)
+- **Tools**: Single-purpose atomic functions (web search, calculator, database lookup).
+- **Skills**: Versioned executable capability packages with explicit schemas and permissions.
+- **MCP Connectors**: Model Context Protocol client/server adapters (GitHub, SQLite, Notion).
+- **Knowledge & RAG**: Ingestion pipelines, chunking, embeddings, hybrid retrieval, citations.
+- **Memory**: Session memory, short-term context, and long-term semantic memory.
+
+#### Tier 3: AGENT SYSTEM
+- **Agent Registry**: Capability discovery, version tracking, and status management.
+- **Agent Manifests**: Declarative YAML/JSON definitions of agent identity, prompt, allowed capabilities, tools, and limits.
+- **Evaluation & Observability**: Evaluation benchmarks, trace capture, and quality metrics.
+
+#### Tier 4: OPTIONAL ORCHESTRATION
+- **Multi-Agent Coordination**: Event-driven handoffs, router agents, dynamic team assembly.
+- **Workflows & Background Execution**: Task queues, scheduled runs (APScheduler).
+- *Strict Rule*: Multi-agent orchestration is **completely optional**. A single agent must execute directly on the Platform Kernel without requiring orchestration overhead.
+
+#### Tier 5: APPLICATIONS
+- **ISEYC Civic Brain**: Flagship civic intelligence and policy application.
+- **Specialized AI Products**: Financial due diligence, legal research, operations monitoring.
+
+---
+
+## 3. Cross-Cutting Platform Controls
+
+Security, governance, auditability, observability, and evaluation are **cross-cutting platform concerns** enforced across every tier:
+
+| Cross-Cutting Control | Enforcement Scope |
+| :--- | :--- |
+| **Security & Authz** | Validates principal permissions & capability scopes |
+| **Governance** | Human approval gateway for consequential tasks |
+| **Auditability** | Immutable event logs for all tool executions |
+| **Observability** | OpenTelemetry tracing across models and tools |
+| **Evaluation** | Automated quality benchmarking & scorecards |
+| **Data Boundaries** | Tenant isolation & PII masking filters |
+
+---
+
+## 4. Provider Abstraction Contract Design
+
+The provider abstraction avoids simplistic prompt-in string-out signatures. The platform defines a rich, provider-neutral conceptual contract in Python:
 
 ```python
-from abc import ABC, abstractmethod
-from typing import AsyncGenerator, Any, Dict, List
-
+# Conceptual Provider Contract
 class IModelProvider(ABC):
-    @abstractmethod
-    async def generate(self, prompt: str, config: Dict[str, Any]) -> str:
+    async def generate(self, messages: List[Message], config: ModelConfig) -> ModelResponse:
         pass
 
-    @abstractmethod
-    async def stream(self, prompt: str, config: Dict[str, Any]) -> AsyncGenerator[str, None]:
+    async def stream(self, messages: List[Message], config: ModelConfig) -> AsyncGenerator[ModelResponse, None]:
         pass
 ```
 
-Providers implemented in Phase 2:
-- `OpenAIAdapter` (OpenAI GPT-4o, O1/O3)
-- `GeminiAdapter` (Google Gemini 2.0 Flash)
-- `AnthropicAdapter` (Claude 3.5 Sonnet)
-- `OllamaAdapter` (Local DeepSeek-R1, Llama 3)
+Supporting:
+- Multi-message conversations (`system`, `developer`, `user`, `assistant`, `tool`)
+- Streaming completion tokens & tool call chunks
+- Structured output formatting & JSON schema validation
+- Multimodal inputs (text, image, audio) where supported
+- Token usage metadata (`prompt_tokens`, `completion_tokens`, `cost_usd`)
+- Timeouts, retries, and cancellation tokens
+- Model capability metadata and capability detection
+
+### Framework Integration via Adapters
+Frameworks (Agno, LangChain, PydanticAI) are integrated as **adapters** consuming `IModelProvider`, ensuring the Platform Kernel remains dependency-light.
 
 ---
 
-## 4. Key Platform Seams & Interfaces
+## 5. Capability-Based Security Model
 
-1. **Tool Interface**: Standardized input/output JSON schemas with capability checks.
-2. **Skill Interface**: Modular execution contracts with explicit permissions.
-3. **Memory Interface**: Unified key-value session and semantic vector retrieval contracts.
-4. **Agent Event Schema**: OpenTelemetry-compatible event structure for runtime tracing.
+Agents are defined by explicit capability bounds rather than unrestricted tool access:
+
+```
+Agent Principal
+ ├── Identity (Agent ID, Owner Tenant)
+ ├── Allowed Capabilities (e.g., "knowledge.read.civic", "web.search")
+ ├── Allowed Tools (e.g., ["duckduckgo_search", "qdrant_query"])
+ ├── Data Scopes (e.g., "tenant:123:public_docs")
+ ├── Network Policy (e.g., Whitelisted domains: ["*.gov", "api.github.com"])
+ ├── Execution Limits (Max tokens: 10,000, Max budget: $0.50, Timeout: 30s)
+ ├── Approval Requirements (Human-in-the-loop for external communications)
+ └── Audit Policy (Log level: VERBOSE, OpenTelemetry trace enabled)
+```
+
+### Conceptual Authorization Flow
+
+```
+User / Agent Identity
+        ↓
+Role / Principal Permissions
+        ↓
+Requested Capability / Tool Invocation
+        ↓
+Risk Classification (READ_ONLY vs. MUTATION vs. CONSEQUENTIAL)
+        ↓
+Policy Evaluation Engine
+        ↓
+Human Approval Gateway (If Risk == CONSEQUENTIAL)
+        ↓
+Scoped Tool Execution Sandbox
+        ↓
+Immutable Audit Event Logging
+```
 
 ---
 
-## 5. Governance Boundaries
+## 6. Deferred Technology Decisions
 
-- **Zero AI-Generated Authority**: AI agents cannot grant permissions, approve financial transactions, or mutate governance records without deterministic human approval.
-- **Human-in-the-Loop Gateway**: Destructive operations require explicit signed token approvals.
+To prevent premature technology lock-in, candidate technologies are classified with clear deferral statuses:
+
+| Technology | Problem Solved | Alternatives | Target Layer | Decision Status |
+| :--- | :--- | :--- | :--- | :--- |
+| **Mem0** | Long-term user memory | Vector DBs, SQLite, PostgreSQL | Capability / Memory | **DEFERRED** (Phase 3) |
+| **OpenTelemetry** | Distributed tracing | Datadog, Prometheus, Custom JSON | Cross-Cutting | **DEFERRED** (Phase 2 Kernel interface first) |
+| **FastMCP / MCP** | Standardized tool protocol | Native Python tools, REST APIs | Capability / MCP | **DEFERRED** (Phase 3 Capability Service) |
+| **Qdrant / Chroma** | Vector search | Pgvector, FAISS, In-memory | Capability / Knowledge | **DEFERRED** (Adapter abstraction in Phase 3) |
+| **Signed Approval Tokens** | Cryptographic approvals | Session HMAC, OAuth2 JWT | Cross-Cutting | **DEFERRED** (Simple RBAC first in Phase 2) |
+| **Agno / LangChain** | Agent orchestration | PydanticAI, Native Python | Framework Adapters | **DEFERRED** (Adapters outside Kernel) |
+
+---
+
+## 7. Proposed Repository Directory Structure
+
+```
+ai-platform/
+├── platform/                      # PLATFORM INFRASTRUCTURE (Phase 2+)
+│   ├── core/                      # Kernel: Identity, Config, Errors, Policies
+│   ├── runtime/                   # Agent execution loop, State machine
+│   ├── providers/                 # IModelProvider contracts & adapters
+│   ├── capabilities/              # Tools, Skills, MCP, Knowledge, Memory
+│   ├── policies/                  # Security guardrails & capability checks
+│   ├── observability/             # OpenTelemetry event schemas & loggers
+│   └── evaluation/                # Quality benchmarks & evals runner
+├── applications/                  # DOMAIN APPLICATIONS (Phase 5+)
+│   └── civic_brain/               # ISEYC Civic Brain Flagship Application
+├── foundation/                    # UPSTREAM REFERENCE MATERIAL (Apache-2.0)
+│   ├── examples/                  # Isolated working reference applications
+│   └── experimental/              # Research & browser automation code
+├── docs/                          # PLATFORM DOCUMENTATION & AUDITS
+│   └── audit/                     # Phase 1 / Phase 1.1 Audit Documentation
+├── AGENTS.md                      # Agent rules & guidelines
+├── PLATFORM_ARCHITECTURE.md       # Target architecture overview
+├── PLATFORM_GOVERNANCE.md         # Governance boundaries
+└── PLATFORM_STRATEGY.md           # North Star Strategy
+```

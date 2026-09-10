@@ -1,47 +1,50 @@
-# Dependency & Operations Audit — AI Platform Foundation
+# Dependency Strategy & Operations Audit — AI Platform (Phase 1.1 Revision)
 
-## Executive Summary
+## 1. Executive Summary & Strategy
 
-The upstream foundation exhibits significant dependency fragmentation and framework duplication across its 160 components.
+To avoid dependency bloat and version conflicts, the AI Platform adopts a **Minimal Core Dependency Strategy**.
 
----
-
-## 1. Package & Dependency Fragmentation
-
-### Python Environment Analysis
-- **Requirements Files**: 160 distinct `requirements.txt` files.
-- **Primary Framework Conflicts**:
-  - `phidata` (132 references): Older versions of `phidata` conflict with newly rebranded `agno` package imports.
-  - `langchain` (39 references): Mix of legacy `langchain==0.1.x` and `langchain-community` packages.
-  - `pydantic`: Incompatibilities between Pydantic v1 (`pydantic<2.0.0`) in older examples and Pydantic v2 (`pydantic>=2.7.0`) in `pydantic-ai` / `fastmcp`.
-  - `openai`: Incompatible method calls between `openai<1.0.0` and `openai>=1.30.0`.
-
-### Node.js / JavaScript Environment Analysis
-- **Package.json Files**: 22 distinct `package.json` files.
-- **Framework Mix**: Next.js 14/15, CopilotKit, React 18, Tailwind CSS, Vite.
-- **Runtime Conflict**: Node.js 18 vs Node.js 20 ESM module resolution requirements.
+The Platform Kernel does NOT attempt to merge all 160 upstream `requirements.txt` files and 22 `package.json` files into a single monolithic environment. Instead, dependencies are strictly isolated across architectural tiers.
 
 ---
 
-## 2. Missing Tests & Operational Fragility
+## 2. Tiered Dependency Isolation Strategy
 
-- **Repository Test Coverage**: Out of 1,652 files, only **23 test files** exist (< 15% coverage).
-- **Environment Variable Inconsistency**: Environment variables use divergent names across examples:
-  - `OPENAI_API_KEY` vs `OPENAI_KEY` vs `AZURE_OPENAI_KEY`
-  - `GEMINI_API_KEY` vs `GOOGLE_API_KEY`
-  - `QDRANT_URL` vs `QDRANT_HOST`
-- **Hardcoded Local Dependencies**:
-  - Hardcoded local paths (`/Users/...` or `C:\...`) found in 4 script files.
-  - Hardcoded localhost ports (`8501`, `8000`, `3000`, `5000`) leading to port collisions during concurrent run.
+| Tier | Allowed Dependencies |
+| :--- | :--- |
+| **Platform Core** | Standard Library + `pydantic v2` + `httpx` + `pyyaml` |
+| **Adapters** | `openai`, `google-genai`, `anthropic`, `ollama-python` |
+| **Framework Adapters** | `agno` (phidata), `langchain-core`, `pydantic-ai` |
+| **Applications** | Domain-specific libraries (`streamlit`, `fastapi`) |
+| **Upstream Examples** | Isolated per-example virtualenv / requirements |
 
 ---
 
-## 3. Deployment & Coexistence Matrix
+## 3. Framework & Package Inventory Summary
 
-| Framework Combination | Coexistence Feasibility | Action Required |
-| :--- | :---: | :--- |
-| `agno` + `openai` + `fastapi` | High | Primary target stack for Python runtime |
-| `pydantic-ai` + `fastmcp` | High | Target stack for MCP and structured tool routing |
-| `phidata` (legacy) + `agno` | Low (Import namespace collisions) | Upgrade legacy `phidata` imports to `agno` |
-| `langchain v0.1` + `pydantic v2` | Low (Breaking Pydantic schema errors) | Isolate legacy LangChain examples |
-| `autogen / ag2` + `crewai` | Medium (Heavy dependency footprint) | Keep isolated in multi-agent adapter packages |
+- **Phidata / Agno**: 132 files (dominant upstream agent framework).
+- **Streamlit**: 128 files (UI runtime for Python reference apps).
+- **OpenAI SDK**: 124 component references.
+- **Google GenAI / Gemini**: 105 component references.
+- **LangChain / LangGraph**: 52 files.
+- **FastAPI**: 39 files.
+- **Qdrant**: 21 files.
+- **Ollama**: 20 files.
+- **Anthropic**: 19 files.
+- **MCP SDK**: 13 files.
+- **ChromaDB**: 9 files.
+- **Mem0**: 7 files.
+- **DeepSeek**: 6 files.
+- **AutoGen / CrewAI**: 8 files.
+- **PydanticAI**: 5 files.
+
+---
+
+## 4. Dependency Conflict Analysis & Remediation
+
+| Package Conflict | Root Cause | Remediation Strategy |
+| :--- | :--- | :--- |
+| `phidata` vs `agno` | Package rebranding in upstream codebase | Map `phidata` calls to `agno` inside framework adapters |
+| `pydantic v1` vs `v2` | Older tutorials use Pydantic v1 syntax | Keep Pydantic v1 code isolated in `foundation/examples/` |
+| `openai<1.0` vs `>=1.30` | Legacy breaking API changes | Wrap model invocations behind `IModelProvider` |
+| Node 18 vs Node 20 | ESM module loading differences in Generative UI | Enforce Node.js 20+ for `applications/` frontend apps |

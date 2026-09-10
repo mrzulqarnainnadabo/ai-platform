@@ -1,41 +1,58 @@
-# Migration Plan — AI Platform Foundation
+# Phased Migration Roadmap — AI Platform (Phase 1.1 Revision)
 
-## Executive Summary
+## 1. Executive Summary & Phased Strategy
 
-This phased migration plan outlines the roadmap for transitioning the imported `awesome-llm-apps` foundation into the production-grade **AI Platform**.
+This migration plan outlines the structured, 8-phase roadmap for evolving the imported `awesome-llm-apps` foundation into the production-grade **AI Platform**.
 
----
-
-## 1. Migration Roadmap Phases
-
-### Phase 1: Full Repository Import Audit (CURRENT)
-- **Goal**: Catalog, classify, and audit all imported components without mass-deleting or altering working upstream code.
-- **Status**: Complete. Audit documentation established in `docs/audit/`.
-
-### Phase 2: Core Platform & Provider Abstraction Foundation
-- **Goal**: Establish core provider abstractions (`IModelProvider`), central secrets loader, security guardrails, and basic runtime interfaces in `core/`.
-- **Key Primitives**: `IModelProvider`, `PlatformSecrets`, `SecurityGuard`.
-
-### Phase 3: High-Value Primitives Extraction
-- **Goal**: Extract top candidate components into platform layers:
-  - `always_on_agents/always_on_hn_briefing_agent` -> Platform Scheduler & Background Runner
-  - `agent_skills/` -> Platform Skill Registry
-  - `mcp_ai_agents/` -> MCP Connector Gateway
-  - `rag_tutorials/agentic_typed_rag_pydanticai` -> Knowledge & Typed RAG Pipeline
-
-### Phase 4: Runtime Standardization & Agent Registry Creation
-- **Goal**: Standardize agent execution loop, event telemetry, state machine, and multi-agent handoff bus.
-
-### Phase 5: Application Migration & Civic Brain Integration
-- **Goal**: Port ISEYC Civic Brain as a first-class application layer component on top of the standardized platform stack.
-
-### Phase 6: Consolidation, Example Archival & Legacy Sunset
-- **Goal**: Move legacy / broken upstream examples to an archived reference folder; establish final production candidate builds.
+Migration is strictly incremental. Upstream reference examples are retained in `foundation/examples/` and extracted into `platform/` only when validated against platform contracts.
 
 ---
 
-## 2. Phase 2 Scope & Immediate Recommendations
+## 2. The 8-Phase Migration Roadmap
 
-1. **Establish Core Directory**: Create `core/platform/` with provider abstractions.
-2. **Fix Critical Security Issues**: Replace `eval()`/`exec()` in calculator and windows_use tools.
-3. **Submit Audit Package**: Submit completed Phase 1 deliverables for ChatGPT architectural review.
+```
+PHASE 0: FOUNDATION (Repository, Provenance, Baseline CI)
+   │
+PHASE 1: AUDIT (Inventory, Taxonomy, Security, Dependency Audit)
+   │
+PHASE 1.1: ARCHITECTURE CORRECTION (North Star Strategy, 5-Tier Arch) [CURRENT]
+   │
+PHASE 2: PLATFORM KERNEL (Identity, Config, Provider Contracts, Runtime, Policies)
+   │
+PHASE 3: TRUSTED CAPABILITIES (Tools, Skills, MCP, Knowledge/RAG, Memory)
+   │
+PHASE 4: AGENT SYSTEM (Registry, Manifests, Permissions, Evals, Observability)
+   │
+PHASE 5: OPTIONAL ORCHESTRATION (Workflows, Routing, Multi-Agent Teams)
+   │
+PHASE 6: APPLICATION EXTRACTION (Migrate Selected High-Value Components)
+   │
+PHASE 7: FLAGSHIP APPLICATIONS (ISEYC Civic Brain Full Deployment)
+```
+
+---
+
+## 3. Detailed Phase Breakdown & Phase Dependencies
+
+| Phase | Core Deliverables | Critical Dependencies | Risk Level |
+| :--- | :--- | :--- | :---: |
+| **Phase 0** | Repository setup, Apache-2.0 notice, CI workflow | None | Low |
+| **Phase 1** | Full repository inventory, initial audit docs | Phase 0 | Low |
+| **Phase 1.1** | `PLATFORM_STRATEGY.md`, corrected 5-tier architecture, reconciled counts | Phase 1 | Low |
+| **Phase 2** | `platform/core/` (Identity, Config, `IModelProvider`, Runtime, Policies) | Phase 1.1 | High |
+| **Phase 3** | `platform/capabilities/` (Tools, Skills, MCP, RAG, Memory) | Phase 2 | Medium |
+| **Phase 4** | `platform/runtime/` & Registry (Agent manifests, Evals, Telemetry) | Phase 3 | Medium |
+| **Phase 5** | `platform/orchestration/` (Optional workflows, routing, handoffs) | Phase 4 | Medium |
+| **Phase 6** | Porting high-value candidate components to `platform/capabilities/` | Phase 4 | Medium |
+| **Phase 7** | `applications/civic_brain/` full production deployment | Phase 4, Phase 6 | High |
+
+---
+
+## 4. Phase 2 Immediate Recommended Priorities
+
+Upon approval of Phase 1.1 by ChatGPT review gate:
+1. **Directory Creation**: Establish `platform/core/` and `platform/providers/`.
+2. **Core Provider Contracts**: Implement `IModelProvider` interface in Python with `OpenAIAdapter`, `GeminiAdapter`, `AnthropicAdapter`, and `OllamaAdapter`.
+3. **Secrets Loader**: Implement `PlatformSecrets` loader with environment validation.
+4. **Base Runtime Loop**: Implement `AgentRuntime` base class with timeout, cancellation, and event logging hooks.
+5. **Security Policy Engine**: Implement basic capability checker (`PolicyEngine`) restricting tool invocations.

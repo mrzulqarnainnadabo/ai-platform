@@ -12,15 +12,17 @@ on:
       - 'dependabot/**'
 
 permissions:
-  contents: write
+  contents: read
   pull-requests: write
-  checks: read
-  statuses: read
+  issues: write
 
 jobs:
   auto-pr-creation:
     if: github.event_name == 'push' && github.ref_name != 'main'
     runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      pull-requests: write
     steps:
       - name: Checkout Repository
         uses: actions/checkout@v4
@@ -46,6 +48,10 @@ jobs:
   classify-and-deliver:
     if: github.event_name == 'pull_request'
     runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      pull-requests: write
+      issues: write
     steps:
       - name: Checkout Repository
         uses: actions/checkout@v4
@@ -61,7 +67,7 @@ jobs:
           set -euo pipefail
           echo "Comparing $BASE_REF...$HEAD_REF"
 
-          # Ensure git diff succeeds cleanly; fail step if refs are invalid
+          # Ensure git diff succeeds cleanly; step fails safely if refs are invalid
           CHANGED_FILES=$(git diff --name-only "$BASE_REF" "$HEAD_REF")
           echo "Changed files:"
           echo "$CHANGED_FILES"
@@ -90,6 +96,10 @@ jobs:
               AGENTS.md)
                 HIGH_RISK=true
                 GATED_REASONS="${GATED_REASONS}\n- Agent authority rules modified: \`$file\`"
+                ;;
+              docs/audit/*)
+                HIGH_RISK=true
+                GATED_REASONS="${GATED_REASONS}\n- Platform audit deliverable modified: \`$file\`"
                 ;;
               platform/core/*|platform/policies/*|platform/security/*)
                 HIGH_RISK=true
@@ -136,5 +146,5 @@ $REASONS
             echo "Auto-merge enabled for PR #$PR_NUMBER."
           else
             echo "Notice: Auto-merge could not be set via GitHub API for PR #$PR_NUMBER."
-            echo "Ensure GitHub Auto-Merge is enabled in repository settings."
+            echo "Ensure 'Allow auto-merge' is enabled in GitHub repository settings."
           fi

@@ -17,8 +17,8 @@ jobs:
       - uses: actions/setup-python@v5
         with:
           python-version: "3.12"
-      - name: Install package and test tooling
-        run: python -m pip install --upgrade pip pytest && python -m pip install -e .
+      - name: Install package, host dependency, and test tooling
+        run: python -m pip install --upgrade pip pytest && python -m pip install -e . && python -m pip install -r requirements.txt
       - name: Repository sanity
         run: |
           test -f README.md
@@ -28,7 +28,7 @@ jobs:
           test -f AGENTS.md
           test -f docs/ROADMAP.md
       - name: Import and compile checks
-        run: python -m compileall -q ai_platform
+        run: python -m compileall -q ai_platform api
       - name: Unit and integration tests
         run: python -m pytest -q
       - name: Secret-pattern guard

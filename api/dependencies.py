@@ -15,7 +15,6 @@ from fastapi.security import HTTPAuthorizationCredentials, HTTPBearer
 
 from ai_platform.integrations.supabase_auth import (
     SupabaseAuthContextProvider,
-    SupabaseAuthContextProvider,
     SupabaseAuthenticationError,
     SupabaseAuthConfigurationError,
 )
@@ -29,10 +28,7 @@ security = HTTPBearer(auto_error=False)
 
 @lru_cache(maxsize=1)
 def get_auth_provider() -> SupabaseAuthContextProvider:
-    try:
-        return SupabaseAuthContextProvider.from_environment()
-    except SupabaseAuthConfigurationError:
-        raise
+    return SupabaseAuthContextProvider.from_environment()
 
 
 def require_auth(

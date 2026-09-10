@@ -55,3 +55,17 @@ class ExecutionContext:
                 "timeout_seconds": self.timeout_seconds,
                 "is_cancelled": self.cancellation_token.is_cancelled,
                 "metadata": self.metadata}
+
+    @classmethod
+    def from_dict(cls, data: Dict[str, Any]) -> "ExecutionContext":
+        if not isinstance(data, dict):
+            raise ValueError("Data must be a dictionary")
+        token = CancellationToken()
+        if data.get("is_cancelled"):
+            token.cancel("Restored cancelled context")
+        return cls(trace_id=str(data.get("trace_id", uuid.uuid4())),
+                   tenant_id=str(data.get("tenant_id", "default")),
+                   user_id=data.get("user_id"), agent_id=data.get("agent_id"),
+                   timeout_seconds=float(data.get("timeout_seconds", 60.0)),
+                   cancellation_token=token,
+                   metadata=data.get("metadata", {}) if isinstance(data.get("metadata"), dict) else {})

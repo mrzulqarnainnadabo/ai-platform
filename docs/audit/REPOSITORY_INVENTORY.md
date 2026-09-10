@@ -1,8 +1,11 @@
 # Repository Inventory — AI Platform Foundation (Phase 1.1 Revision)
 
-## 1. Executive Summary & Provenance
+## 1. Executive Summary & Inventory Methodology
 
 This document provides the complete, authoritative inventory of the Apache-2.0 upstream foundation imported from `Shubhamsaboo/awesome-llm-apps` at revision `83eabefa21bf4485167da9ea7c2cf9179ed8b0be` on branch `automation/foundation-sync`.
+
+### Component Unit Definition
+A **"component unit"** is defined as a top-level or sub-domain application directory containing application logic, executable scripts, configuration (`requirements.txt`, `package.json`), or specialized skill definitions in the imported foundation.
 
 - **Total Files**: 1,652 files
 - **Total Cataloged Component Units**: Exact 160 application and module directories

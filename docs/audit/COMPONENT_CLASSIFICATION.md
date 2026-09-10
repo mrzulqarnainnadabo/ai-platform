@@ -18,8 +18,8 @@ In accordance with `PLATFORM_GOVERNANCE.md`, every imported component is classif
 | `PLATFORM` | 0 | 0.0% | To be extracted in Phase 3 Capabilities |
 | `CANDIDATE-FOR-PLATFORM` | 10 | 6.25% | Extract as platform capability primitives |
 | `ADAPTER` | 12 | 7.5% | Wrap behind standardized interfaces |
-| `EXAMPLE` | 102 | 63.75% | Retain isolated in `foundation/examples/` |
-| `EXPERIMENTAL` | 18 | 11.25% | Quarantine in `foundation/experimental/` |
+| `EXAMPLE` | 102 | 63.75% | Retain isolated in reference examples |
+| `EXPERIMENTAL` | 18 | 11.25% | Quarantine in experimental area |
 | `LEGACY` | 8 | 5.0% | Deprecate and queue for Phase 6 sunset |
 | `BROKEN` | 4 | 2.5% | Block promotion; remediate if required |
 | `DUPLICATE` | 6 | 3.75% | Consolidate duplicate patterns |
@@ -36,7 +36,7 @@ In accordance with `PLATFORM_GOVERNANCE.md`, every imported component is classif
 | `PRODUCTION-CANDIDATE` | 0 | 0.0% | Requires Phase 2 Kernel + Evals |
 | `PRODUCTION` | 0 | 0.0% | Requires full release gate review |
 | `DEPRECATED` | 8 | 5.0% | Outdated framework syntax |
-| **Total** | **160** | **100.0%** | **Reconciled Lifecycle Metrics (22 + 108 + 12 + 10 + 8 = 160)** |
+| **Total** | **160** | **100.0%** | **Reconciled Lifecycle Metrics (22 + 108 + 12 + 10 + 0 + 0 + 8 = 160)** |
 
 ---
 

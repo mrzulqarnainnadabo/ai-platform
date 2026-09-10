@@ -1,10 +1,34 @@
 # Platform Strategy — AI Platform North Star
 
-## 1. Executive Summary & Vision
+## 1. Executive Summary & Current vs. Target Distinction
 
-The **AI Platform** is a reusable, provider-neutral engineering foundation designed to build, run, secure, evaluate, observe, and deploy diverse AI applications using shared, production-grade infrastructure.
+The **AI Platform** strategy defines the vision for turning imported upstream AI code into a reusable, provider-neutral engineering foundation designed to build, run, secure, evaluate, observe, and deploy diverse AI applications using shared infrastructure.
 
-Rather than building standalone point-solution AI demos or locking into a single monolith, the AI Platform establishes a minimal trusted kernel, capability services, and cross-cutting security/governance controls. Applications—such as our flagship **ISEYC Civic Brain**—are built as domain-specific products *on top* of the platform rather than defining the generic platform core.
+### Explicit State Boundaries
+
+```
+┌─────────────────────────────────────────┐
+│ CURRENT STATE (Phase 1 / Phase 1.1)     │
+│ • Imported awesome-llm-apps foundation  │
+│ • Comprehensive repository audit        │
+│ • Component taxonomy classification     │
+│ • Governance policy definitions         │
+│ • Baseline CI secret guard & checks     │
+│ • Target architecture & strategy proposal│
+└─────────────────────────────────────────┘
+                    │
+                    ▼ (Phased Migration Roadmap)
+┌─────────────────────────────────────────┐
+│ TARGET STATE (Phase 2+)                 │
+│ • Platform Kernel & Provider Adapters   │
+│ • Capability-Based Security Runtime     │
+│ • Agent Registry & Manifests            │
+│ • Telemetry, Observability & Evals      │
+│ • Flagship Application Host (Civic Brain)│
+└─────────────────────────────────────────┘
+```
+
+*Important Note*: Target state components are architectural designs for future implementation in Phase 2+. They are **not** currently implemented in the codebase.
 
 ---
 
@@ -28,35 +52,31 @@ Organizations face massive friction when attempting to move AI applications from
 3. **Vendor Lock-in**: Application code is tightly coupled to specific LLM providers (e.g., direct OpenAI SDK calls or Phidata specifics).
 4. **Lack of Observability & Evals**: No standardized execution telemetry or systematic quality benchmarks.
 
-The AI Platform solves this by providing a **trusted Platform Kernel** that abstracts model providers, enforces capability-based security, records OpenTelemetry audit events, and exposes reusable capability services.
+The AI Platform solves this by proposing a **trusted Platform Kernel** that abstracts model providers, enforces capability-based security, records OpenTelemetry audit events, and exposes reusable capability services.
 
 ---
 
-## 4. Upstream Foundation Usage & Apache-2.0 Provenance
+## 4. Upstream Foundation Location & Repository Boundary
 
 The imported `Shubhamsaboo/awesome-llm-apps` repository serves as **raw laboratory, reference, and research material**.
 
+### Planned Repository Separation Boundary
+
 ```
-FOUNDATION (awesome-llm-apps under Apache-2.0)
+UPSTREAM FOUNDATION (awesome-llm-apps under Apache-2.0)
         ↓
-Audit / Classify / Extract Reusable Primitives
+Audit / Classification / Research Laboratory
         ↓
-YOUR AI PLATFORM (Core Kernel, Adapters, Capability Services)
+Selected Capability Extraction
         ↓
-┌────────────────────────────────────────────────────────┐
-│ Platform Core Kernel                                   │
-│ Identity | Config | Provider Abstraction | Runtime    │
-│ Capabilities | Security / Policies | Event Telemetry   │
-└────────────────────────────────────────────────────────┘
+PLATFORM CORE / CAPABILITIES
         ↓
-┌─────────────────────┬─────────────────────┬────────────┐
-│ Civic Brain Flagship│ Business Intelligence│ Future Apps│
-└─────────────────────┴─────────────────────┴────────────┘
+APPLICATIONS (Civic Brain Flagship | Future Specialized Apps)
 ```
 
-- **Upstream License**: Apache License 2.0. All original copyrights, license notices, and attributions are strictly preserved in `LICENSE` and `UPSTREAM_FOUNDATION.md`.
-- **Upstream Material**: Isolated in `foundation/examples/` and `foundation/experimental/`. Upstream authorship is never claimed as platform authorship.
-- **Platform Code**: Maintained separately in `platform/` and `applications/`.
+- **Current Repository Layout**: All 160 imported component units currently reside in their original imported paths (e.g., `starter_ai_agents/`, `advanced_ai_agents/`). No files have been physically moved or reorganized in Phase 1.1.
+- **Target Isolation Boundaries**: In future migration phases (Phase 6+), non-extracted upstream reference examples will be isolated in `foundation/examples/` or `foundation/experimental/`.
+- **Upstream License & Provenance**: Apache License 2.0. All original copyrights, license notices, and attributions are strictly preserved in `LICENSE` and `UPSTREAM_FOUNDATION.md`.
 
 ---
 
@@ -72,7 +92,7 @@ YOUR AI PLATFORM (Core Kernel, Adapters, Capability Services)
 
 ## 6. Long-Term Commercial Strategy & Reusable Institutional AI
 
-The platform architecture enables potential future commercial opportunities:
+The target platform architecture enables potential future commercial opportunities:
 - **White-Label Institutional AI**: Standardized platform kernel deployed for enterprises, municipalities, or educational institutions requiring self-hosted, audit-compliant AI.
 - **Compounding Capability Catalog**: Tools, MCP connectors, and skill packages built for one application immediately become available to future applications hosted on the platform.
 
@@ -82,8 +102,8 @@ The platform architecture enables potential future commercial opportunities:
 
 ## 7. Model Neutrality, Security & Governance Guarantees
 
-1. **Model & Provider Neutrality**: The platform provides rich provider interfaces supporting streaming, structured output, tool calls, and token usage tracking across OpenAI, Google Gemini, Anthropic Claude, Groq, and local Ollama models.
-2. **Capability-Based Security**: Agents are restricted to explicitly granted capabilities, data scopes, and network policies.
+1. **Model & Provider Neutrality**: The platform specifies rich, provider-neutral interfaces supporting streaming, structured output, tool calls, and token usage tracking across OpenAI, Google Gemini, Anthropic Claude, Groq, and local Ollama models.
+2. **Capability-Based Security**: Agents will be restricted to explicitly granted capabilities, data scopes, and network policies.
 3. **Zero AI-Generated Authority**: AI outputs remain drafts or recommendations. Consequential actions (financial transactions, public communications, data deletion) require deterministic human approval.
 
 ---
@@ -92,7 +112,7 @@ The platform architecture enables potential future commercial opportunities:
 
 - **Phase 0 — Foundation**: Repository import, license provenance, baseline CI.
 - **Phase 1 — Audit & Phase 1.1 — Architecture Correction**: Inventory, classification, security, dependencies, and North Star strategy (CURRENT).
-- **Phase 2 — Platform Kernel**: Minimal trusted foundation (`IModelProvider`, identity, configuration, runtime contracts, security policies, event bus).
+- **Phase 2 — Platform Kernel**: Incremental trusted foundation (Phase 2A Core Contracts -> 2B Minimal Runtime -> 2C Capability Boundary -> 2D Provider Adapter Prototype -> 2E Validation Tests).
 - **Phase 3 — Trusted Capabilities**: Reusable tools, skills, MCP adapters, RAG, and memory contracts.
 - **Phase 4 — Agent System**: Agent registry, manifests, capabilities, evaluation, and observability.
 - **Phase 5 — Optional Orchestration**: Workflows, routing, handoffs, and background execution.

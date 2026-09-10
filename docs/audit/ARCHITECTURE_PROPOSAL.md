@@ -1,14 +1,17 @@
-# Architecture Proposal — AI Platform (Phase 1.1 Correction)
+# Target Architecture Proposal — AI Platform (Phase 1.1 Final Correction)
 
-## 1. Executive Summary & Structural Correction
+## 1. Executive Summary & Current vs. Target Distinction
 
-This document revises the initial 14-layer architecture into a practical, highly maintainable **5-Tier Conceptual Architecture** with **Cross-Cutting Controls**.
+This document presents the **Target Architecture Proposal** for the AI Platform.
 
-Rather than enforcing 14 rigid, sequential layers where every component must pass through every layer, the corrected architecture separates the **Platform Kernel**, **Capability Services**, **Agent System**, **Optional Orchestration**, and **Applications**.
+### Current State vs. Target State Boundary
+
+- **CURRENT STATE**: Audit documentation, component inventory, security taxonomy, licensing provenance, and baseline CI. No runtime platform code or provider adapters exist in the repository yet.
+- **TARGET STATE**: A 5-tier conceptual platform architecture containing a Platform Kernel, Capability Services, Agent System, Optional Orchestration, and Applications.
 
 ---
 
-## 2. The 5-Tier Conceptual Architecture
+## 2. The 5-Tier Conceptual Architecture (Target State)
 
 ```
 ┌─────────────────────────────────────────────────────────────────────────┐
@@ -38,7 +41,7 @@ Rather than enforcing 14 rigid, sequential layers where every component must pas
 ===========================================================================
 ```
 
-### Tier Descriptions
+### Tier Descriptions (Proposed Design)
 
 #### Tier 1: PLATFORM KERNEL (Minimal Trusted Foundation)
 - **Identity & Authorization**: Tenant ID, user/agent principal, role assignment.
@@ -88,10 +91,10 @@ Security, governance, auditability, observability, and evaluation are **cross-cu
 
 ## 4. Provider Abstraction Contract Design
 
-The provider abstraction avoids simplistic prompt-in string-out signatures. The platform defines a rich, provider-neutral conceptual contract in Python:
+The provider abstraction is strictly provider-neutral and dependency-light. It does NOT lock the kernel to OpenAI, Gemini, Anthropic, Groq, Ollama, or any specific framework.
 
 ```python
-# Conceptual Provider Contract
+# Conceptual Target Provider Contract (For Phase 2 Implementation)
 class IModelProvider(ABC):
     async def generate(self, messages: List[Message], config: ModelConfig) -> ModelResponse:
         pass
@@ -100,23 +103,35 @@ class IModelProvider(ABC):
         pass
 ```
 
-Supporting:
-- Multi-message conversations (`system`, `developer`, `user`, `assistant`, `tool`)
-- Streaming completion tokens & tool call chunks
-- Structured output formatting & JSON schema validation
-- Multimodal inputs (text, image, audio) where supported
-- Token usage metadata (`prompt_tokens`, `completion_tokens`, `cost_usd`)
-- Timeouts, retries, and cancellation tokens
-- Model capability metadata and capability detection
+### Conceptual Contract Capabilities
+- **Multi-Message Conversations**: Supports `system`, `developer`, `user`, `assistant`, and `tool` message roles.
+- **Streaming & Structured Output**: Token streaming and JSON schema output validation.
+- **Tool Calls & Multimodal Inputs**: Native tool call schemas and image/audio input payloads where supported.
+- **Extensible Telemetry & Usage**: Provider-neutral token usage metadata (`prompt_tokens`, `completion_tokens`) and extensible event payloads rather than hardcoded vendor fields.
+- **Timeouts, Retries & Cancellation**: Standardized error hierarchy, exponential backoff retries, and cancellation tokens.
+- **Model Capability Metadata**: Queryable provider capability flags (e.g., `supports_vision`, `supports_tool_calling`).
 
 ### Framework Integration via Adapters
-Frameworks (Agno, LangChain, PydanticAI) are integrated as **adapters** consuming `IModelProvider`, ensuring the Platform Kernel remains dependency-light.
+Frameworks (Agno, LangChain, PydanticAI, CrewAI) will be integrated as **adapters** consuming `IModelProvider`, keeping the Platform Kernel dependency-light.
 
 ---
 
-## 5. Capability-Based Security Model
+## 5. Target Security Architecture & Capability Model
 
-Agents are defined by explicit capability bounds rather than unrestricted tool access:
+The security model is a **TARGET design** to be implemented in Phase 2+. It establishes clear separation between security boundaries:
+
+| Target Security Layer | Functional Responsibility |
+| :--- | :--- |
+| **Identity** | Identifies Agent ID, User Principal, Tenant ID |
+| **Authorization** | Evaluates Principal Role & Assigned Capabilities |
+| **Capability Grants** | Scopes permitted actions ("knowledge.read") |
+| **Policy Evaluation** | Real-time check before tool execution |
+| **Tool Execution** | Sandboxed invocation of atomic tools |
+| **Sandboxing** | Process/container isolation for external code |
+| **Human Approval** | Mandatory gateway for consequential actions |
+| **Audit Logging** | Immutable OpenTelemetry event tracing |
+
+### Capability Specification Schema
 
 ```
 Agent Principal
@@ -130,31 +145,14 @@ Agent Principal
  └── Audit Policy (Log level: VERBOSE, OpenTelemetry trace enabled)
 ```
 
-### Conceptual Authorization Flow
-
-```
-User / Agent Identity
-        ↓
-Role / Principal Permissions
-        ↓
-Requested Capability / Tool Invocation
-        ↓
-Risk Classification (READ_ONLY vs. MUTATION vs. CONSEQUENTIAL)
-        ↓
-Policy Evaluation Engine
-        ↓
-Human Approval Gateway (If Risk == CONSEQUENTIAL)
-        ↓
-Scoped Tool Execution Sandbox
-        ↓
-Immutable Audit Event Logging
-```
+### Core Security Principle
+**Zero AI-Generated Authority**: AI agents cannot grant themselves permissions, modify governance records, publish external communications, or execute destructive actions without deterministic human approval.
 
 ---
 
 ## 6. Deferred Technology Decisions
 
-To prevent premature technology lock-in, candidate technologies are classified with clear deferral statuses:
+To preserve architectural neutrality, specific technology selections are marked with clear deferral statuses:
 
 | Technology | Problem Solved | Alternatives | Target Layer | Decision Status |
 | :--- | :--- | :--- | :--- | :--- |
@@ -167,11 +165,13 @@ To prevent premature technology lock-in, candidate technologies are classified w
 
 ---
 
-## 7. Proposed Repository Directory Structure
+## 7. Target Repository Directory Structure (Planned Separation)
+
+*Note*: Files currently remain in their original imported root paths. The directory structure below represents the **planned repository layout** for future extraction phases:
 
 ```
 ai-platform/
-├── platform/                      # PLATFORM INFRASTRUCTURE (Phase 2+)
+├── platform/                      # PLATFORM INFRASTRUCTURE (Target Phase 2+)
 │   ├── core/                      # Kernel: Identity, Config, Errors, Policies
 │   ├── runtime/                   # Agent execution loop, State machine
 │   ├── providers/                 # IModelProvider contracts & adapters
@@ -179,11 +179,11 @@ ai-platform/
 │   ├── policies/                  # Security guardrails & capability checks
 │   ├── observability/             # OpenTelemetry event schemas & loggers
 │   └── evaluation/                # Quality benchmarks & evals runner
-├── applications/                  # DOMAIN APPLICATIONS (Phase 5+)
+├── applications/                  # DOMAIN APPLICATIONS (Target Phase 5+)
 │   └── civic_brain/               # ISEYC Civic Brain Flagship Application
-├── foundation/                    # UPSTREAM REFERENCE MATERIAL (Apache-2.0)
-│   ├── examples/                  # Isolated working reference applications
-│   └── experimental/              # Research & browser automation code
+├── foundation/                    # UPSTREAM REFERENCE MATERIAL (Apache-2.0 Target)
+│   ├── examples/                  # Target location for isolated reference apps
+│   └── experimental/              # Target location for research & browser code
 ├── docs/                          # PLATFORM DOCUMENTATION & AUDITS
 │   └── audit/                     # Phase 1 / Phase 1.1 Audit Documentation
 ├── AGENTS.md                      # Agent rules & guidelines

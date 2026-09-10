@@ -1,0 +1,231 @@
+# Repository Inventory — AI Platform Foundation
+
+## 1. Executive Summary & Provenance
+
+This document provides the complete, authoritative inventory of the Apache-2.0 upstream foundation imported from `Shubhamsaboo/awesome-llm-apps` at revision `83eabefa21bf4485167da9ea7c2cf9179ed8b0be` on branch `automation/foundation-sync`.
+
+- **Total Files**: 1,652 files
+- **Total Cataloged Component Units**: 160 application and skill directories
+- **Upstream License**: Apache License 2.0 (See `LICENSE` and `UPSTREAM_FOUNDATION.md`)
+- **Attribution Policy**: Upstream material retains original copyright and attribution requirements. Platform modifications are maintained separately.
+
+---
+
+## 2. Inventory Summary by Top-Level Category
+
+| Category Directory | Component Count | Purpose & Focus | Dominant Frameworks |
+| :--- | :---: | :--- | :--- |
+| `starter_ai_agents` | 24 | Single-agent reference apps for search, financial, legal, and reasoning tasks | Phidata / Agno, Streamlit, OpenAI SDK |
+| `advanced_ai_agents` | 52 | Multi-agent teams, game playing agents, autonomous desktop & web agents | AutoGen / AG2, CrewAI, Phidata, FastAPI, Playwright |
+| `generative_ui_agents` | 9 | Interactive generative UI, Shadcn component generation, MCP app builders | Next.js, React, Tailwind CSS, CopilotKit, MCP SDK |
+| `mcp_ai_agents` | 8 | Model Context Protocol servers, client integrations, and tools | FastMCP, MCP Python SDK, SQLite, GitHub API |
+| `voice_ai_agents` | 6 | Voice RAG, real-time speech agents, audio generation | ElevenLabs, LiveKit, Whisper, Kokoro TTS |
+| `always_on_agents` | 3 | Background polling agents, news monitors, release scanners | APScheduler, FastAPI, DuckDuckGo, Tavily |
+| `agent_skills` | 8 | Task-specific skill packages, commit analysis, dependency evaluation | Python CLI, Git, Custom Evals |
+| `rag_tutorials` | 28 | Agentic RAG, Graph RAG, Multimodal RAG, Typed RAG | Qdrant, ChromaDB, Mem0, LlamaIndex, LangChain |
+| `advanced_llm_apps` | 14 | LLM critique loops, tarot readers, multimodal video search | Streamlit, OpenAI GPT-4o, Gemini 2.0 Flash |
+| `ai_agent_framework_crash_course` | 8 | Educational modules for OpenAI SDK & Google Agent Developer Kit | OpenAI SDK, Google GenAI / ADK |
+| **Total** | **160** | **Comprehensive Platform Foundation** | **Phidata, OpenAI, Gemini, LangChain, Streamlit** |
+
+---
+
+## 3. Technology & Framework Distribution
+
+### Model Provider Integrations
+- **OpenAI**: 124 component references (GPT-4o, GPT-4o-mini, O1/O3)
+- **Google Gemini**: 105 component references (Gemini 2.0 Flash, Gemini 1.5 Pro)
+- **Anthropic**: 19 component references (Claude 3.5 Sonnet, Claude 3 Opus)
+- **Ollama / Local Models**: 20 component references (Llama 3, DeepSeek-R1, Qwen 2.5)
+- **Groq**: 3 component references (Llama-3.3-70b-versatile)
+- **DeepSeek**: 6 component references (DeepSeek V3 / R1)
+
+### Agent Orchestration Frameworks
+- **Phidata / Agno**: 132 files (dominant single/multi-agent framework)
+- **Streamlit**: 128 files (dominant UI runtime)
+- **LangChain / LangGraph**: 52 files
+- **FastAPI**: 39 files
+- **MCP (Model Context Protocol)**: 13 files
+- **Smolagents / AutoGen / CrewAI**: 13 files
+- **PydanticAI**: 5 files
+
+### Vector Stores & Databases
+- **Qdrant**: 21 files
+- **ChromaDB**: 9 files
+- **Mem0**: 7 files
+- **FAISS**: 5 files
+- **Pgvector**: 1 file
+
+---
+
+## 4. Full Component Inventory Table (160 Components)
+
+| Component Path | Language / Runtime | Primary Dependencies | Model Assumptions | Tests | Security Risks | Platform Reuse Potential |
+| :--- | :---: | :--- | :--- | :---: | :--- | :--- |
+| `advanced_ai_agents/autonomous_game_playing_agent_apps/ai_3dpygame_r1` | Python | Phidata / Streamlit / OpenAI | OpenAI / Gemini | No | Direct env lookup / Unauthenticated UI | Candidate / Reference |
+| `advanced_ai_agents/autonomous_game_playing_agent_apps/ai_chess_agent` | Python | Phidata / Streamlit / OpenAI | OpenAI / Gemini | No | Direct env lookup / Unauthenticated UI | Candidate / Reference |
+| `advanced_ai_agents/autonomous_game_playing_agent_apps/ai_tic_tac_toe_agent` | Python | Phidata / Streamlit / OpenAI | OpenAI / Gemini | No | Direct env lookup / Unauthenticated UI | Candidate / Reference |
+| `advanced_ai_agents/multi_agent_apps/agent_teams/ag2_adaptive_research_team` | Python | Phidata / Streamlit / OpenAI | OpenAI / Gemini | No | Direct env lookup / Unauthenticated UI | Candidate / Reference |
+| `advanced_ai_agents/multi_agent_apps/agent_teams/ai_competitor_intelligence_agent_team` | Python | Phidata / Streamlit / OpenAI | OpenAI / Gemini | No | Direct env lookup / Unauthenticated UI | Candidate / Reference |
+| `advanced_ai_agents/multi_agent_apps/agent_teams/ai_finance_agent_team` | Python | Phidata / Streamlit / OpenAI | OpenAI / Gemini | No | Direct env lookup / Unauthenticated UI | Candidate / Reference |
+| `advanced_ai_agents/multi_agent_apps/agent_teams/ai_game_design_agent_team` | Python | Phidata / Streamlit / OpenAI | OpenAI / Gemini | No | Direct env lookup / Unauthenticated UI | Candidate / Reference |
+| `advanced_ai_agents/multi_agent_apps/agent_teams/ai_legal_agent_team` | Python | Phidata / Streamlit / OpenAI | OpenAI / Gemini | No | Direct env lookup / Unauthenticated UI | Candidate / Reference |
+| `advanced_ai_agents/multi_agent_apps/agent_teams/ai_real_estate_agent_team` | Python | Phidata / Streamlit / OpenAI | OpenAI / Gemini | No | Direct env lookup / Unauthenticated UI | Candidate / Reference |
+| `advanced_ai_agents/multi_agent_apps/agent_teams/ai_recruitment_agent_team` | Python | Phidata / Streamlit / OpenAI | OpenAI / Gemini | No | Direct env lookup / Unauthenticated UI | Candidate / Reference |
+| `advanced_ai_agents/multi_agent_apps/agent_teams/ai_sales_intelligence_agent_team` | Python | Phidata / Streamlit / OpenAI | OpenAI / Gemini | No | Direct env lookup / Unauthenticated UI | Candidate / Reference |
+| `advanced_ai_agents/multi_agent_apps/agent_teams/ai_seo_audit_team` | Python | Phidata / Streamlit / OpenAI | OpenAI / Gemini | No | Direct env lookup / Unauthenticated UI | Candidate / Reference |
+| `advanced_ai_agents/multi_agent_apps/agent_teams/ai_services_agency` | Python | Phidata / Streamlit / OpenAI | OpenAI / Gemini | No | Direct env lookup / Unauthenticated UI | Candidate / Reference |
+| `advanced_ai_agents/multi_agent_apps/agent_teams/ai_teaching_agent_team` | Python | Phidata / Streamlit / OpenAI | OpenAI / Gemini | No | Direct env lookup / Unauthenticated UI | Candidate / Reference |
+| `advanced_ai_agents/multi_agent_apps/agent_teams/ai_travel_planner_agent_team` | Python | Phidata / Streamlit / OpenAI | OpenAI / Gemini | No | Direct env lookup / Unauthenticated UI | Candidate / Reference |
+| `advanced_ai_agents/multi_agent_apps/agent_teams/ai_vc_due_diligence_agent_team` | Python | Phidata / Streamlit / OpenAI | OpenAI / Gemini | No | Direct env lookup / Unauthenticated UI | Candidate / Reference |
+| `advanced_ai_agents/multi_agent_apps/agent_teams/multimodal_coding_agent_team` | Python | Phidata / Streamlit / OpenAI | OpenAI / Gemini | No | Direct env lookup / Unauthenticated UI | Candidate / Reference |
+| `advanced_ai_agents/multi_agent_apps/agent_teams/multimodal_design_agent_team` | Python | Phidata / Streamlit / OpenAI | OpenAI / Gemini | No | Direct env lookup / Unauthenticated UI | Candidate / Reference |
+| `advanced_ai_agents/multi_agent_apps/agent_teams/multimodal_uiux_feedback_agent_team` | Python | Phidata / Streamlit / OpenAI | OpenAI / Gemini | No | Direct env lookup / Unauthenticated UI | Candidate / Reference |
+| `advanced_ai_agents/multi_agent_apps/ai_aqi_analysis_agent` | Python | Phidata / Streamlit / OpenAI | OpenAI / Gemini | No | Direct env lookup / Unauthenticated UI | Candidate / Reference |
+| `advanced_ai_agents/multi_agent_apps/ai_codebase_migration_agent` | Python | Phidata / Streamlit / OpenAI | OpenAI / Gemini | Yes | Direct env lookup / Unauthenticated UI | Candidate / Reference |
+| `advanced_ai_agents/multi_agent_apps/ai_domain_deep_research_agent` | Python | Phidata / Streamlit / OpenAI | OpenAI / Gemini | No | Direct env lookup / Unauthenticated UI | Candidate / Reference |
+| `advanced_ai_agents/multi_agent_apps/ai_email_gtm_outreach_agent` | Python | Phidata / Streamlit / OpenAI | OpenAI / Gemini | No | Direct env lookup / Unauthenticated UI | Candidate / Reference |
+| `advanced_ai_agents/multi_agent_apps/ai_financial_coach_agent` | Python | Phidata / Streamlit / OpenAI | OpenAI / Gemini | No | Direct env lookup / Unauthenticated UI | Candidate / Reference |
+| `advanced_ai_agents/multi_agent_apps/ai_home_renovation_agent` | Python | Phidata / Streamlit / OpenAI | OpenAI / Gemini | No | Direct env lookup / Unauthenticated UI | Candidate / Reference |
+| `advanced_ai_agents/multi_agent_apps/ai_mental_wellbeing_agent` | Python | Phidata / Streamlit / OpenAI | OpenAI / Gemini | No | Direct env lookup / Unauthenticated UI | Candidate / Reference |
+| `advanced_ai_agents/multi_agent_apps/ai_negotiation_battle_simulator` | Python | Phidata / Streamlit / OpenAI | OpenAI / Gemini | No | Direct env lookup / Unauthenticated UI | Candidate / Reference |
+| `advanced_ai_agents/multi_agent_apps/ai_news_and_podcast_agents` | Python | Phidata / Streamlit / OpenAI | OpenAI / Gemini | Yes | Direct env lookup / Unauthenticated UI | Candidate / Reference |
+| `advanced_ai_agents/multi_agent_apps/ai_self_evolving_agent` | Python | Phidata / Streamlit / OpenAI | OpenAI / Gemini | No | Direct env lookup / Unauthenticated UI | Candidate / Reference |
+| `advanced_ai_agents/multi_agent_apps/ai_speech_trainer_agent` | Python | Phidata / Streamlit / OpenAI | OpenAI / Gemini | No | Direct env lookup / Unauthenticated UI | Candidate / Reference |
+| `advanced_ai_agents/multi_agent_apps/devpulse_ai` | Python | Phidata / Streamlit / OpenAI | OpenAI / Gemini | No | Direct env lookup / Unauthenticated UI | Candidate / Reference |
+| `advanced_ai_agents/multi_agent_apps/multi_agent_researcher` | Python | Phidata / Streamlit / OpenAI | OpenAI / Gemini | No | Direct env lookup / Unauthenticated UI | Candidate / Reference |
+| `advanced_ai_agents/multi_agent_apps/multi_agent_trust_layer` | Python | Phidata / Streamlit / OpenAI | OpenAI / Gemini | No | Direct env lookup / Unauthenticated UI | Candidate / Reference |
+| `advanced_ai_agents/multi_agent_apps/product_launch_intelligence_agent` | Python | Phidata / Streamlit / OpenAI | OpenAI / Gemini | No | Direct env lookup / Unauthenticated UI | Candidate / Reference |
+| `advanced_ai_agents/multi_agent_apps/trust_gated_agent_team` | Python | Phidata / Streamlit / OpenAI | OpenAI / Gemini | No | Direct env lookup / Unauthenticated UI | Candidate / Reference |
+| `advanced_ai_agents/single_agent_apps/ai_agent_governance` | Python | Phidata / Streamlit / OpenAI | OpenAI / Gemini | No | Direct env lookup / Unauthenticated UI | Candidate / Reference |
+| `advanced_ai_agents/single_agent_apps/ai_consultant_agent` | Python | Phidata / Streamlit / OpenAI | OpenAI / Gemini | No | Direct env lookup / Unauthenticated UI | Candidate / Reference |
+| `advanced_ai_agents/single_agent_apps/ai_customer_support_agent` | Python | Phidata / Streamlit / OpenAI | OpenAI / Gemini | No | Direct env lookup / Unauthenticated UI | Candidate / Reference |
+| `advanced_ai_agents/single_agent_apps/ai_deep_research_agent` | Python | Phidata / Streamlit / OpenAI | OpenAI / Gemini | No | Direct env lookup / Unauthenticated UI | Candidate / Reference |
+| `advanced_ai_agents/single_agent_apps/ai_email_gtm_reachout_agent` | Python | Phidata / Streamlit / OpenAI | OpenAI / Gemini | No | Direct env lookup / Unauthenticated UI | Candidate / Reference |
+| `advanced_ai_agents/single_agent_apps/ai_fraud_investigation_agent` | Python | Phidata / Streamlit / OpenAI | OpenAI / Gemini | No | Direct env lookup / Unauthenticated UI | Candidate / Reference |
+| `advanced_ai_agents/single_agent_apps/ai_health_fitness_agent` | Python | Phidata / Streamlit / OpenAI | OpenAI / Gemini | No | Direct env lookup / Unauthenticated UI | Candidate / Reference |
+| `advanced_ai_agents/single_agent_apps/ai_investment_agent` | Python | Phidata / Streamlit / OpenAI | OpenAI / Gemini | No | Direct env lookup / Unauthenticated UI | Candidate / Reference |
+| `advanced_ai_agents/single_agent_apps/ai_journalist_agent` | Python | Phidata / Streamlit / OpenAI | OpenAI / Gemini | No | Direct env lookup / Unauthenticated UI | Candidate / Reference |
+| `advanced_ai_agents/single_agent_apps/ai_meeting_agent` | Python | Phidata / Streamlit / OpenAI | OpenAI / Gemini | No | Direct env lookup / Unauthenticated UI | Candidate / Reference |
+| `advanced_ai_agents/single_agent_apps/ai_movie_production_agent` | Python | Phidata / Streamlit / OpenAI | OpenAI / Gemini | No | Direct env lookup / Unauthenticated UI | Candidate / Reference |
+| `advanced_ai_agents/single_agent_apps/ai_personal_finance_agent` | Python | Phidata / Streamlit / OpenAI | OpenAI / Gemini | No | Direct env lookup / Unauthenticated UI | Candidate / Reference |
+| `advanced_ai_agents/single_agent_apps/ai_recipe_meal_planning_agent` | Python | Phidata / Streamlit / OpenAI | OpenAI / Gemini | No | Direct env lookup / Unauthenticated UI | Candidate / Reference |
+| `advanced_ai_agents/single_agent_apps/ai_startup_insight_fire1_agent` | Python | Phidata / Streamlit / OpenAI | OpenAI / Gemini | No | Direct env lookup / Unauthenticated UI | Candidate / Reference |
+| `advanced_ai_agents/single_agent_apps/ai_system_architect_r1` | Python | Phidata / Streamlit / OpenAI | OpenAI / Gemini | No | Direct env lookup / Unauthenticated UI | Candidate / Reference |
+| `advanced_ai_agents/single_agent_apps/earnings_call_analyst_agent` | Python | Phidata / Streamlit / OpenAI | OpenAI / Gemini | Yes | Direct env lookup / Unauthenticated UI | Candidate / Reference |
+| `advanced_ai_agents/single_agent_apps/research_agent_gemini_interaction_api` | Python | Phidata / Streamlit / OpenAI | OpenAI / Gemini | No | Direct env lookup / Unauthenticated UI | Candidate / Reference |
+| `advanced_ai_agents/single_agent_apps/windows_use_autonomous_agent` | Python | Phidata / Streamlit / OpenAI | OpenAI / Gemini | No | Direct env lookup / Unauthenticated UI | Candidate / Reference |
+| `advanced_llm_apps/chat-with-tarots` | Python | Phidata / Streamlit / OpenAI | OpenAI / Gemini | No | Direct env lookup / Unauthenticated UI | Candidate / Reference |
+| `advanced_llm_apps/chat_with_X_tutorials` | Python | Phidata / Streamlit / OpenAI | OpenAI / Gemini | Yes | Direct env lookup / Unauthenticated UI | Candidate / Reference |
+| `advanced_llm_apps/cursor_ai_experiments` | Python | Phidata / Streamlit / OpenAI | OpenAI / Gemini | No | Direct env lookup / Unauthenticated UI | Candidate / Reference |
+| `advanced_llm_apps/gpt_oss_critique_improvement_loop` | Python | Phidata / Streamlit / OpenAI | OpenAI / Gemini | No | Direct env lookup / Unauthenticated UI | Candidate / Reference |
+| `advanced_llm_apps/llm_apps_with_memory_tutorials` | Python | Phidata / Streamlit / OpenAI | OpenAI / Gemini | No | Direct env lookup / Unauthenticated UI | Candidate / Reference |
+| `advanced_llm_apps/llm_finetuning_tutorials` | Python | Phidata / Streamlit / OpenAI | OpenAI / Gemini | No | Direct env lookup / Unauthenticated UI | Candidate / Reference |
+| `advanced_llm_apps/llm_optimization_tools` | Python | Phidata / Streamlit / OpenAI | OpenAI / Gemini | Yes | Direct env lookup / Unauthenticated UI | Candidate / Reference |
+| `advanced_llm_apps/multimodal_video_moment_finder` | Python | Phidata / Streamlit / OpenAI | OpenAI / Gemini | No | Direct env lookup / Unauthenticated UI | Candidate / Reference |
+| `advanced_llm_apps/resume_job_matcher` | Python | Phidata / Streamlit / OpenAI | OpenAI / Gemini | No | Direct env lookup / Unauthenticated UI | Candidate / Reference |
+| `advanced_llm_apps/thinkpath_chatbot_app` | Node/TS | Phidata / Streamlit / OpenAI | OpenAI / Gemini | No | Direct env lookup / Unauthenticated UI | Candidate / Reference |
+| `agent_skills/advisor-orchestrator-worker` | Node/TS | Phidata / Streamlit / OpenAI | OpenAI / Gemini | No | Direct env lookup / Unauthenticated UI | Candidate / Reference |
+| `agent_skills/commit-archaeologist` | Python | Phidata / Streamlit / OpenAI | OpenAI / Gemini | No | Direct env lookup / Unauthenticated UI | Candidate / Reference |
+| `agent_skills/dependency-doctor` | Python | Phidata / Streamlit / OpenAI | OpenAI / Gemini | No | Direct env lookup / Unauthenticated UI | Candidate / Reference |
+| `agent_skills/evals/advisor-orchestrator-worker` | Node/TS | Phidata / Streamlit / OpenAI | OpenAI / Gemini | No | Direct env lookup / Unauthenticated UI | Candidate / Reference |
+| `agent_skills/evals/commit-archaeologist` | Python | Phidata / Streamlit / OpenAI | OpenAI / Gemini | Yes | Direct env lookup / Unauthenticated UI | Candidate / Reference |
+| `agent_skills/evals/dependency-doctor` | Python | Phidata / Streamlit / OpenAI | OpenAI / Gemini | Yes | Direct env lookup / Unauthenticated UI | Candidate / Reference |
+| `agent_skills/evals/project-graveyard` | Python | Phidata / Streamlit / OpenAI | OpenAI / Gemini | Yes | Direct env lookup / Unauthenticated UI | Candidate / Reference |
+| `agent_skills/evals/scope-creep-detector` | Python | Phidata / Streamlit / OpenAI | OpenAI / Gemini | Yes | Direct env lookup / Unauthenticated UI | Candidate / Reference |
+| `agent_skills/evals/thinking-out-loud` | Node/TS | Phidata / Streamlit / OpenAI | OpenAI / Gemini | No | Direct env lookup / Unauthenticated UI | Candidate / Reference |
+| `agent_skills/evals/tools` | Python | Phidata / Streamlit / OpenAI | OpenAI / Gemini | No | Direct env lookup / Unauthenticated UI | Candidate / Reference |
+| `agent_skills/project-graveyard` | Python | Phidata / Streamlit / OpenAI | OpenAI / Gemini | No | Direct env lookup / Unauthenticated UI | Candidate / Reference |
+| `agent_skills/scope-creep-detector` | Python | Phidata / Streamlit / OpenAI | OpenAI / Gemini | No | Direct env lookup / Unauthenticated UI | Candidate / Reference |
+| `agent_skills/self-improving-agent-skills` | Python | Phidata / Streamlit / OpenAI | OpenAI / Gemini | No | Direct env lookup / Unauthenticated UI | Candidate / Reference |
+| `agent_skills/thinking-out-loud` | Node/TS | Phidata / Streamlit / OpenAI | OpenAI / Gemini | No | Direct env lookup / Unauthenticated UI | Candidate / Reference |
+| `ai_agent_framework_crash_course/google_adk_crash_course/1_starter_agent` | Python | Phidata / Streamlit / OpenAI | OpenAI / Gemini | No | Direct env lookup / Unauthenticated UI | Candidate / Reference |
+| `ai_agent_framework_crash_course/google_adk_crash_course/2_model_agnostic_agent` | Python | Phidata / Streamlit / OpenAI | OpenAI / Gemini | No | Direct env lookup / Unauthenticated UI | Candidate / Reference |
+| `ai_agent_framework_crash_course/google_adk_crash_course/3_structured_output_agent` | Python | Phidata / Streamlit / OpenAI | OpenAI / Gemini | No | Direct env lookup / Unauthenticated UI | Candidate / Reference |
+| `ai_agent_framework_crash_course/google_adk_crash_course/4_tool_using_agent` | Python | Phidata / Streamlit / OpenAI | OpenAI / Gemini | No | Direct env lookup / Unauthenticated UI | Candidate / Reference |
+| `ai_agent_framework_crash_course/google_adk_crash_course/5_memory_agent` | Python | Phidata / Streamlit / OpenAI | OpenAI / Gemini | No | Direct env lookup / Unauthenticated UI | Candidate / Reference |
+| `ai_agent_framework_crash_course/google_adk_crash_course/6_callbacks` | Python | Phidata / Streamlit / OpenAI | OpenAI / Gemini | No | Direct env lookup / Unauthenticated UI | Candidate / Reference |
+| `ai_agent_framework_crash_course/google_adk_crash_course/7_plugins` | Python | Phidata / Streamlit / OpenAI | OpenAI / Gemini | No | Direct env lookup / Unauthenticated UI | Candidate / Reference |
+| `ai_agent_framework_crash_course/google_adk_crash_course/8_simple_multi_agent` | Python | Phidata / Streamlit / OpenAI | OpenAI / Gemini | No | Direct env lookup / Unauthenticated UI | Candidate / Reference |
+| `ai_agent_framework_crash_course/google_adk_crash_course/9_multi_agent_patterns` | Python | Phidata / Streamlit / OpenAI | OpenAI / Gemini | No | Direct env lookup / Unauthenticated UI | Candidate / Reference |
+| `ai_agent_framework_crash_course/google_adk_crash_course/adk_yaml_examples` | Python | Phidata / Streamlit / OpenAI | OpenAI / Gemini | No | Direct env lookup / Unauthenticated UI | Candidate / Reference |
+| `ai_agent_framework_crash_course/openai_sdk_crash_course/10_tracing_observability` | Python | Phidata / Streamlit / OpenAI | OpenAI / Gemini | No | Direct env lookup / Unauthenticated UI | Candidate / Reference |
+| `ai_agent_framework_crash_course/openai_sdk_crash_course/11_voice` | Python | Phidata / Streamlit / OpenAI | OpenAI / Gemini | No | Direct env lookup / Unauthenticated UI | Candidate / Reference |
+| `ai_agent_framework_crash_course/openai_sdk_crash_course/1_starter_agent` | Python | Phidata / Streamlit / OpenAI | OpenAI / Gemini | No | Direct env lookup / Unauthenticated UI | Candidate / Reference |
+| `ai_agent_framework_crash_course/openai_sdk_crash_course/2_structured_output_agent` | Python | Phidata / Streamlit / OpenAI | OpenAI / Gemini | No | Direct env lookup / Unauthenticated UI | Candidate / Reference |
+| `ai_agent_framework_crash_course/openai_sdk_crash_course/3_tool_using_agent` | Python | Phidata / Streamlit / OpenAI | OpenAI / Gemini | No | Direct env lookup / Unauthenticated UI | Candidate / Reference |
+| `ai_agent_framework_crash_course/openai_sdk_crash_course/4_running_agents` | Python | Phidata / Streamlit / OpenAI | OpenAI / Gemini | No | Direct env lookup / Unauthenticated UI | Candidate / Reference |
+| `ai_agent_framework_crash_course/openai_sdk_crash_course/5_context_management` | Python | Phidata / Streamlit / OpenAI | OpenAI / Gemini | No | Direct env lookup / Unauthenticated UI | Candidate / Reference |
+| `ai_agent_framework_crash_course/openai_sdk_crash_course/6_guardrails_validation` | Python | Phidata / Streamlit / OpenAI | OpenAI / Gemini | No | Direct env lookup / Unauthenticated UI | Candidate / Reference |
+| `ai_agent_framework_crash_course/openai_sdk_crash_course/7_sessions` | Python | Phidata / Streamlit / OpenAI | OpenAI / Gemini | No | Direct env lookup / Unauthenticated UI | Candidate / Reference |
+| `ai_agent_framework_crash_course/openai_sdk_crash_course/8_handoffs_delegation` | Python | Phidata / Streamlit / OpenAI | OpenAI / Gemini | No | Direct env lookup / Unauthenticated UI | Candidate / Reference |
+| `ai_agent_framework_crash_course/openai_sdk_crash_course/9_multi_agent_orchestration` | Python | Phidata / Streamlit / OpenAI | OpenAI / Gemini | No | Direct env lookup / Unauthenticated UI | Candidate / Reference |
+| `always_on_agents/always_on_hn_briefing_agent` | Python | Phidata / Streamlit / OpenAI | OpenAI / Gemini | Yes | Direct env lookup / Unauthenticated UI | Candidate / Reference |
+| `always_on_agents/release_radar_agent` | Python | Phidata / Streamlit / OpenAI | OpenAI / Gemini | Yes | Direct env lookup / Unauthenticated UI | Candidate / Reference |
+| `generative_ui_agents/ai-dashboard-canvas-agent` | Python | Phidata / Streamlit / OpenAI | OpenAI / Gemini | No | Direct env lookup / Unauthenticated UI | Candidate / Reference |
+| `generative_ui_agents/ai-deep-research-agent` | Python | Phidata / Streamlit / OpenAI | OpenAI / Gemini | No | Direct env lookup / Unauthenticated UI | Candidate / Reference |
+| `generative_ui_agents/ai-financial-coach-agent` | Python | Phidata / Streamlit / OpenAI | OpenAI / Gemini | Yes | Direct env lookup / Unauthenticated UI | Candidate / Reference |
+| `generative_ui_agents/ai-knowledge-explorer` | Python | Phidata / Streamlit / OpenAI | OpenAI / Gemini | No | Direct env lookup / Unauthenticated UI | Candidate / Reference |
+| `generative_ui_agents/ai-mcp-app-builder` | Node/TS | Phidata / Streamlit / OpenAI | OpenAI / Gemini | Yes | Direct env lookup / Unauthenticated UI | Candidate / Reference |
+| `generative_ui_agents/ai-shadcn-component-generator` | Python | Phidata / Streamlit / OpenAI | OpenAI / Gemini | No | Direct env lookup / Unauthenticated UI | Candidate / Reference |
+| `generative_ui_agents/generative-ui-starter-project` | Python | Phidata / Streamlit / OpenAI | OpenAI / Gemini | Yes | Direct env lookup / Unauthenticated UI | Candidate / Reference |
+| `generative_ui_agents/mcp-apps-generative-ui-showcase` | Node/TS | Phidata / Streamlit / OpenAI | OpenAI / Gemini | No | Direct env lookup / Unauthenticated UI | Candidate / Reference |
+| `mcp_ai_agents/ai_travel_planner_mcp_agent_team` | Python | Phidata / Streamlit / OpenAI | OpenAI / Gemini | No | Direct env lookup / Unauthenticated UI | Candidate / Reference |
+| `mcp_ai_agents/browser_mcp_agent` | Python | Phidata / Streamlit / OpenAI | OpenAI / Gemini | No | Direct env lookup / Unauthenticated UI | Candidate / Reference |
+| `mcp_ai_agents/github_mcp_agent` | Python | Phidata / Streamlit / OpenAI | OpenAI / Gemini | No | Direct env lookup / Unauthenticated UI | Candidate / Reference |
+| `mcp_ai_agents/multi_mcp_agent` | Python | Phidata / Streamlit / OpenAI | OpenAI / Gemini | No | Direct env lookup / Unauthenticated UI | Candidate / Reference |
+| `mcp_ai_agents/multi_mcp_agent_router` | Python | Phidata / Streamlit / OpenAI | OpenAI / Gemini | No | Direct env lookup / Unauthenticated UI | Candidate / Reference |
+| `mcp_ai_agents/notion_mcp_agent` | Python | Phidata / Streamlit / OpenAI | OpenAI / Gemini | No | Direct env lookup / Unauthenticated UI | Candidate / Reference |
+| `mcp_ai_agents/openai_remote_mcp_bridge` | Python | Phidata / Streamlit / OpenAI | OpenAI / Gemini | No | Direct env lookup / Unauthenticated UI | Candidate / Reference |
+| `rag_tutorials/agentic_rag_embedding_gemma` | Python | Phidata / Streamlit / OpenAI | OpenAI / Gemini | No | Direct env lookup / Unauthenticated UI | Candidate / Reference |
+| `rag_tutorials/agentic_rag_gpt5` | Python | Phidata / Streamlit / OpenAI | OpenAI / Gemini | No | Direct env lookup / Unauthenticated UI | Candidate / Reference |
+| `rag_tutorials/agentic_rag_math_agent` | Python | Phidata / Streamlit / OpenAI | OpenAI / Gemini | No | Direct env lookup / Unauthenticated UI | Candidate / Reference |
+| `rag_tutorials/agentic_rag_with_reasoning` | Python | Phidata / Streamlit / OpenAI | OpenAI / Gemini | No | Direct env lookup / Unauthenticated UI | Candidate / Reference |
+| `rag_tutorials/agentic_typed_rag_pydanticai` | Python | Phidata / Streamlit / OpenAI | OpenAI / Gemini | Yes | Direct env lookup / Unauthenticated UI | Candidate / Reference |
+| `rag_tutorials/ai_blog_search` | Python | Phidata / Streamlit / OpenAI | OpenAI / Gemini | No | Direct env lookup / Unauthenticated UI | Candidate / Reference |
+| `rag_tutorials/autonomous_rag` | Python | Phidata / Streamlit / OpenAI | OpenAI / Gemini | No | Direct env lookup / Unauthenticated UI | Candidate / Reference |
+| `rag_tutorials/contextualai_rag_agent` | Python | Phidata / Streamlit / OpenAI | OpenAI / Gemini | No | Direct env lookup / Unauthenticated UI | Candidate / Reference |
+| `rag_tutorials/corrective_rag` | Python | Phidata / Streamlit / OpenAI | OpenAI / Gemini | No | Direct env lookup / Unauthenticated UI | Candidate / Reference |
+| `rag_tutorials/deepseek_local_rag_agent` | Python | Phidata / Streamlit / OpenAI | OpenAI / Gemini | No | Direct env lookup / Unauthenticated UI | Candidate / Reference |
+| `rag_tutorials/gemini_agentic_rag` | Python | Phidata / Streamlit / OpenAI | OpenAI / Gemini | No | Direct env lookup / Unauthenticated UI | Candidate / Reference |
+| `rag_tutorials/hybrid_search_rag` | Python | Phidata / Streamlit / OpenAI | OpenAI / Gemini | No | Direct env lookup / Unauthenticated UI | Candidate / Reference |
+| `rag_tutorials/knowledge_graph_rag_citations` | Python | Phidata / Streamlit / OpenAI | OpenAI / Gemini | No | Direct env lookup / Unauthenticated UI | Candidate / Reference |
+| `rag_tutorials/llama3.1_local_rag` | Python | Phidata / Streamlit / OpenAI | OpenAI / Gemini | No | Direct env lookup / Unauthenticated UI | Candidate / Reference |
+| `rag_tutorials/local_hybrid_search_rag` | Python | Phidata / Streamlit / OpenAI | OpenAI / Gemini | No | Direct env lookup / Unauthenticated UI | Candidate / Reference |
+| `rag_tutorials/local_rag_agent` | Python | Phidata / Streamlit / OpenAI | OpenAI / Gemini | No | Direct env lookup / Unauthenticated UI | Candidate / Reference |
+| `rag_tutorials/multimodal_agentic_rag` | Python | Phidata / Streamlit / OpenAI | OpenAI / Gemini | No | Direct env lookup / Unauthenticated UI | Candidate / Reference |
+| `rag_tutorials/qwen_local_rag` | Python | Phidata / Streamlit / OpenAI | OpenAI / Gemini | No | Direct env lookup / Unauthenticated UI | Candidate / Reference |
+| `rag_tutorials/rag-as-a-service` | Python | Phidata / Streamlit / OpenAI | OpenAI / Gemini | No | Direct env lookup / Unauthenticated UI | Candidate / Reference |
+| `rag_tutorials/rag_agent_cohere` | Python | Phidata / Streamlit / OpenAI | OpenAI / Gemini | No | Direct env lookup / Unauthenticated UI | Candidate / Reference |
+| `rag_tutorials/rag_chain` | Python | Phidata / Streamlit / OpenAI | OpenAI / Gemini | No | Direct env lookup / Unauthenticated UI | Candidate / Reference |
+| `rag_tutorials/rag_database_routing` | Python | Phidata / Streamlit / OpenAI | OpenAI / Gemini | No | Direct env lookup / Unauthenticated UI | Candidate / Reference |
+| `rag_tutorials/rag_failure_diagnostics_clinic` | Python | Phidata / Streamlit / OpenAI | OpenAI / Gemini | No | Direct env lookup / Unauthenticated UI | Candidate / Reference |
+| `rag_tutorials/vision_rag` | Python | Phidata / Streamlit / OpenAI | OpenAI / Gemini | No | Direct env lookup / Unauthenticated UI | Candidate / Reference |
+| `starter_ai_agents/ai_blog_to_podcast_agent` | Python | Phidata / Streamlit / OpenAI | OpenAI / Gemini | No | Direct env lookup / Unauthenticated UI | Candidate / Reference |
+| `starter_ai_agents/ai_breakup_recovery_agent` | Python | Phidata / Streamlit / OpenAI | OpenAI / Gemini | No | Direct env lookup / Unauthenticated UI | Candidate / Reference |
+| `starter_ai_agents/ai_data_analysis_agent` | Python | Phidata / Streamlit / OpenAI | OpenAI / Gemini | No | Direct env lookup / Unauthenticated UI | Candidate / Reference |
+| `starter_ai_agents/ai_data_visualisation_agent` | Python | Phidata / Streamlit / OpenAI | OpenAI / Gemini | No | Direct env lookup / Unauthenticated UI | Candidate / Reference |
+| `starter_ai_agents/ai_life_insurance_advisor_agent` | Python | Phidata / Streamlit / OpenAI | OpenAI / Gemini | No | Direct env lookup / Unauthenticated UI | Candidate / Reference |
+| `starter_ai_agents/ai_medical_imaging_agent` | Python | Phidata / Streamlit / OpenAI | OpenAI / Gemini | No | Direct env lookup / Unauthenticated UI | Candidate / Reference |
+| `starter_ai_agents/ai_meme_generator_agent_browseruse` | Python | Phidata / Streamlit / OpenAI | OpenAI / Gemini | No | Direct env lookup / Unauthenticated UI | Candidate / Reference |
+| `starter_ai_agents/ai_music_generator_agent` | Python | Phidata / Streamlit / OpenAI | OpenAI / Gemini | No | Direct env lookup / Unauthenticated UI | Candidate / Reference |
+| `starter_ai_agents/ai_reasoning_agent` | Python | Phidata / Streamlit / OpenAI | OpenAI / Gemini | No | Direct env lookup / Unauthenticated UI | Candidate / Reference |
+| `starter_ai_agents/ai_startup_trend_analysis_agent` | Python | Phidata / Streamlit / OpenAI | OpenAI / Gemini | No | Direct env lookup / Unauthenticated UI | Candidate / Reference |
+| `starter_ai_agents/ai_travel_agent` | Python | Phidata / Streamlit / OpenAI | OpenAI / Gemini | No | Direct env lookup / Unauthenticated UI | Candidate / Reference |
+| `starter_ai_agents/ai_x402_paying_agent` | Python | Phidata / Streamlit / OpenAI | OpenAI / Gemini | No | Direct env lookup / Unauthenticated UI | Candidate / Reference |
+| `starter_ai_agents/mixture_of_agents` | Python | Phidata / Streamlit / OpenAI | OpenAI / Gemini | No | Direct env lookup / Unauthenticated UI | Candidate / Reference |
+| `starter_ai_agents/multimodal_ai_agent` | Python | Phidata / Streamlit / OpenAI | OpenAI / Gemini | No | Direct env lookup / Unauthenticated UI | Candidate / Reference |
+| `starter_ai_agents/openai_research_agent` | Python | Phidata / Streamlit / OpenAI | OpenAI / Gemini | No | Direct env lookup / Unauthenticated UI | Candidate / Reference |
+| `starter_ai_agents/web_scraping_ai_agent` | Python | Phidata / Streamlit / OpenAI | OpenAI / Gemini | No | Direct env lookup / Unauthenticated UI | Candidate / Reference |
+| `starter_ai_agents/xai_finance_agent` | Python | Phidata / Streamlit / OpenAI | OpenAI / Gemini | No | Direct env lookup / Unauthenticated UI | Candidate / Reference |
+| `voice_ai_agents/ai_audio_tour_agent` | Python | Phidata / Streamlit / OpenAI | OpenAI / Gemini | No | Direct env lookup / Unauthenticated UI | Candidate / Reference |
+| `voice_ai_agents/customer_support_voice_agent` | Python | Phidata / Streamlit / OpenAI | OpenAI / Gemini | No | Direct env lookup / Unauthenticated UI | Candidate / Reference |
+| `voice_ai_agents/insurance_claim_live_agent_team` | Python | Phidata / Streamlit / OpenAI | OpenAI / Gemini | No | Direct env lookup / Unauthenticated UI | Candidate / Reference |
+| `voice_ai_agents/voice_rag_openaisdk` | Python | Phidata / Streamlit / OpenAI | OpenAI / Gemini | No | Direct env lookup / Unauthenticated UI | Candidate / Reference |
+
+---
+
+## 5. Test & Automation Assets
+
+- **Test Files**: 23 test scripts identified (coverage < 15% across codebase)
+- **CI/CD Workflows**: `.github/workflows/platform-ci.yml` and `.github/workflows/ai-platform-foundation-import.yml`
+- **Environment Templates**: 68 `.env` / `.env.example` files

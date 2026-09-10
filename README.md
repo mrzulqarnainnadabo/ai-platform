@@ -1,62 +1,58 @@
 # AI Platform
 
-A unified, modular AI platform built from a broad open-source AI application foundation and evolved into a governed platform for agents, skills, knowledge, tools, memory, orchestration, and AI applications.
+A provider-neutral AI platform substrate for reusable, governed AI applications across ISEYC, Hubil, and future products.
 
-## Mission
-
-Build a reusable AI platform that can host many specialized AI products without turning every application into a separate stack.
-
-## Foundation
-
-This repository incorporates material from [`Shubhamsaboo/awesome-llm-apps`](https://github.com/Shubhamsaboo/awesome-llm-apps), licensed under Apache-2.0. See `UPSTREAM_FOUNDATION.md` and retain all applicable upstream notices and license requirements.
-
-## Platform direction
+## Current foundation
 
 ```text
-AI Platform
-├── Core Platform
-│   ├── configuration
-│   ├── provider abstraction
-│   ├── identity / authorization
-│   ├── audit / observability
-│   └── runtime contracts
-├── Agent Runtime
-│   ├── agents
-│   ├── workflows
-│   ├── tools
-│   ├── memory
-│   └── orchestration
-├── Knowledge
-│   ├── ingestion
-│   ├── retrieval / RAG
-│   ├── embeddings
-│   └── citations
-├── Skills
-├── Connectors / MCP
-├── Experience
-│   ├── chat
-│   ├── agent workspace
-│   ├── generative UI
-│   └── voice
-├── Governance
-│   ├── permissions
-│   ├── approvals
-│   ├── evaluations
-│   ├── safety controls
-│   └── data boundaries
-└── Applications
+Application AuthN/AuthZ
+        ↓
+AuthContextProvider (application boundary)
+        ↓
+AuthorizationContext
+        ↓
+AuthorizedModelRuntime
+        ↓
+Deterministic Policy
+        ↓
+ModelRuntime
+        ↓
+ProviderRegistry → IModelProvider
+        ↓
+Mock / OpenAI-Compatible Provider
+        ↓
+Provider API
 ```
+
+The kernel and policy layers remain provider-neutral. Provider adapters live outside the kernel. Runtime telemetry is sanitized and excludes prompts, responses, credentials, and authorization headers.
+
+## Safety invariants
+
+- AI output is never authority.
+- Policy is deterministic and fail-closed.
+- `DENY` and `REQUIRE_HUMAN` cannot execute a provider without the required authorization/approval path.
+- Timeout and cancellation are distinct errors.
+- Applications should enter through `AuthorizedModelRuntime`, not provider-specific calls.
+- No provider credentials are committed to source control.
+
+## Production status
+
+The repository is a **library/substrate, not a deployed HTTP service**. The foundation is suitable for real consumer integration, but production deployment still requires a host application's real AuthN/AuthZ, externalized secrets, operational telemetry, deployment/readiness controls, and a tested rollback procedure.
+
+## Upstream provenance
+
+This repository incorporates material from `Shubhamsaboo/awesome-llm-apps` under Apache-2.0. See `UPSTREAM_FOUNDATION.md` and preserve applicable notices and attribution.
 
 ## Engineering rule
 
 **Preserve → understand → test → modularize → consolidate → improve.**
 
-The foundation is not to be blindly rewritten or mass-deleted. Reusable components should be migrated incrementally after dependency, security, licensing, and behavior are understood.
+Do not mass-rewrite or mass-delete the upstream foundation. Extract reusable components incrementally after security, licensing, dependencies, and behavior are understood.
+
+## Integration
+
+See `docs/INTEGRATION.md`, `docs/DEPLOYMENT.md`, and `docs/OPERATIONS.md`. The reference consumer is intentionally small and uses the deterministic mock provider.
 
 ## Collaboration
 
-- **Jules:** primary implementation engineer.
-- **Grok:** independent refinement, testing, hardening, and second-pass engineering.
-- **ChatGPT:** architecture, security, product, code-review, and release-gate partner.
-
-No major merge or production deployment is considered approved merely because an agent reports success.
+Jules, Grok, and ChatGPT operate as complementary engineering/review agents. No agent report alone constitutes a merge or production-release approval.

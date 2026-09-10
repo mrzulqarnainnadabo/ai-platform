@@ -50,9 +50,15 @@ def get_authorized_runtime() -> AuthorizedModelRuntime:
     if provider_name == "openai-compatible":
         from ai_platform.providers.openai_compatible import OpenAICompatibleProvider
 
+        base_url = (os.getenv("OPENAI_BASE_URL") or "https://api.openai.com/v1").rstrip("/")
+        api_key = os.getenv("OPENAI_API_KEY", "").strip()
+        is_local = base_url.startswith(("http://localhost", "http://127.0.0.1", "http://[::1]"))
+        if not api_key and not is_local:
+            raise RuntimeError("OPENAI_API_KEY is required for a non-local provider")
+
         registry.register(OpenAICompatibleProvider(
-            api_key=os.getenv("OPENAI_API_KEY"),
-            base_url=os.getenv("OPENAI_BASE_URL"),
+            api_key=api_key or None,
+            base_url=base_url,
             timeout_seconds=float(os.getenv("AI_PLATFORM_PROVIDER_TIMEOUT_SECONDS", "60")),
         ))
     else:

@@ -33,7 +33,7 @@ def test_denied_generation_never_calls_provider():
         await runtime.generate(auth(), [Message(Role.USER, "hi")], ModelConfig("mock"), "mock")
     with pytest.raises(Exception) as exc:
         asyncio.run(run())
-    assert "denied" in str(exc.value).lower()
+    assert "not granted" in str(exc.value).lower()
     assert provider.calls == 0
 
 

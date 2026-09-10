@@ -35,7 +35,7 @@ def api_root() -> dict:
         "name": "AI Platform",
         "version": __version__,
         "status": "foundation",
-        "model_execution": "authenticated-and-capability-gated",
+        "model_execution": "protected-application-boundary-required",
     }
 
 

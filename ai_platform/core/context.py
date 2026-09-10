@@ -4,7 +4,7 @@ import uuid
 from dataclasses import dataclass, field
 from typing import Any, Dict, Optional
 
-from platform.core.errors import ProviderTimeoutError
+from ai_platform.core.errors import ProviderTimeoutError
 
 
 class CancellationToken:
@@ -23,6 +23,8 @@ class CancellationToken:
         return self._reason
 
     def cancel(self, reason: str = "Execution cancelled") -> None:
+        if not reason or not isinstance(reason, str):
+            reason = "Execution cancelled"
         self._is_cancelled = True
         self._reason = reason
 
@@ -43,6 +45,14 @@ class ExecutionContext:
     cancellation_token: CancellationToken = field(default_factory=CancellationToken)
     metadata: Dict[str, Any] = field(default_factory=dict)
 
+    def __post_init__(self) -> None:
+        if not isinstance(self.timeout_seconds, (int, float)) or self.timeout_seconds <= 0:
+            raise ValueError("timeout_seconds must be a positive number")
+        if not self.tenant_id or not isinstance(self.tenant_id, str):
+            raise ValueError("tenant_id must be a non-empty string")
+        if not isinstance(self.metadata, dict):
+            raise ValueError("metadata must be a dictionary")
+
     def to_dict(self) -> Dict[str, Any]:
         return {
             "trace_id": self.trace_id,
@@ -56,6 +66,8 @@ class ExecutionContext:
 
     @classmethod
     def from_dict(cls, data: Dict[str, Any]) -> "ExecutionContext":
+        if not isinstance(data, dict):
+            raise ValueError("Data must be a dictionary")
         token = CancellationToken()
         if data.get("is_cancelled"):
             token.cancel()
@@ -64,7 +76,7 @@ class ExecutionContext:
             tenant_id=data.get("tenant_id", "default"),
             user_id=data.get("user_id"),
             agent_id=data.get("agent_id"),
-            timeout_seconds=data.get("timeout_seconds", 60.0),
+            timeout_seconds=float(data.get("timeout_seconds", 60.0)),
             cancellation_token=token,
-            metadata=data.get("metadata", {}),
+            metadata=data.get("metadata", {}) if isinstance(data.get("metadata"), dict) else {},
         )

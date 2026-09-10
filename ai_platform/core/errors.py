@@ -7,9 +7,11 @@ class KernelError(Exception):
     """Base exception for all AI Platform Kernel errors."""
 
     def __init__(self, message: str, details: Optional[Dict[str, Any]] = None) -> None:
+        if not message or not isinstance(message, str):
+            message = "An unclassified kernel error occurred."
         super().__init__(message)
         self.message = message
-        self.details = details or {}
+        self.details = details if isinstance(details, dict) else {}
 
 
 class ProviderError(KernelError):
@@ -25,6 +27,8 @@ class ProviderError(KernelError):
         details: Optional[Dict[str, Any]] = None,
     ) -> None:
         super().__init__(message, details=details)
+        if not provider_name or not isinstance(provider_name, str):
+            raise ValueError("provider_name must be a non-empty string")
         self.provider_name = provider_name
         self.model_name = model_name
         self.status_code = status_code
@@ -55,6 +59,8 @@ class RateLimitError(ProviderError):
         retry_after_seconds: Optional[float] = None,
         **kwargs: Any,
     ) -> None:
+        if retry_after_seconds is not None and (not isinstance(retry_after_seconds, (int, float)) or retry_after_seconds < 0):
+            raise ValueError("retry_after_seconds must be a non-negative number")
         super().__init__(message, **kwargs)
         self.retry_after_seconds = retry_after_seconds
         if retry_after_seconds is not None:
@@ -90,6 +96,8 @@ class ContextWindowExceededError(ProviderError):
         max_context_tokens: Optional[int] = None,
         **kwargs: Any,
     ) -> None:
+        if max_context_tokens is not None and (not isinstance(max_context_tokens, int) or max_context_tokens <= 0):
+            raise ValueError("max_context_tokens must be a positive integer")
         super().__init__(message, **kwargs)
         self.max_context_tokens = max_context_tokens
         if max_context_tokens is not None:

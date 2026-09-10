@@ -1,19 +1,19 @@
-"""AI Platform Kernel Core Contracts."""
+"""AI Platform Kernel Core Public Contracts."""
 
-from platform.core.capabilities import (
+from ai_platform.core.capabilities import (
     MediaCapability,
     ModelCapabilities,
     ProviderCapabilities,
 )
-from platform.core.config import (
+from ai_platform.core.config import (
     ModelConfig,
     ResponseFormat,
     ResponseFormatType,
     ToolDefinition,
     ToolFunction,
 )
-from platform.core.context import CancellationToken, ExecutionContext
-from platform.core.errors import (
+from ai_platform.core.context import CancellationToken, ExecutionContext
+from ai_platform.core.errors import (
     AuthenticationError,
     ContextWindowExceededError,
     InvalidRequestError,
@@ -25,15 +25,15 @@ from platform.core.errors import (
     RateLimitError,
     normalize_provider_error,
 )
-from platform.core.messages import (
+from ai_platform.core.messages import (
     ContentPart,
     Message,
     Role,
     ToolCall,
     ToolResult,
 )
-from platform.core.provider import IModelProvider
-from platform.core.response import FinishReason, ModelResponse, TokenUsage
+from ai_platform.core.provider import IModelProvider
+from ai_platform.core.response import FinishReason, ModelResponse, TokenUsage
 
 __all__ = [
     # Errors

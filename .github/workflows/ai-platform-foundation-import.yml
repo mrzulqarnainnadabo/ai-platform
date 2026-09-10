@@ -61,7 +61,6 @@ jobs:
             --exclude='UPSTREAM_FOUNDATION.md' \
             --exclude='PLATFORM_ARCHITECTURE.md' \
             --exclude='PLATFORM_GOVERNANCE.md' \
-            --exclude='PLATFORM_STRATEGY.md' \
             --exclude='AGENTS.md' \
             --exclude='JULES_PHASE_1_IMPORT_AUDIT.md' \
             --exclude='docs/ROADMAP.md' \

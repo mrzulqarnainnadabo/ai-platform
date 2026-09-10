@@ -3,11 +3,11 @@
 from abc import ABC, abstractmethod
 from typing import AsyncGenerator, List, Optional
 
-from platform.core.capabilities import ProviderCapabilities
-from platform.core.config import ModelConfig
-from platform.core.context import ExecutionContext
-from platform.core.messages import Message
-from platform.core.response import ModelResponse
+from ai_platform.core.capabilities import ProviderCapabilities
+from ai_platform.core.config import ModelConfig
+from ai_platform.core.context import ExecutionContext
+from ai_platform.core.messages import Message
+from ai_platform.core.response import ModelResponse
 
 
 class IModelProvider(ABC):

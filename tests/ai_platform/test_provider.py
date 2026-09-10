@@ -4,12 +4,12 @@ import asyncio
 import unittest
 from typing import AsyncGenerator, List, Optional
 
-from platform.core.capabilities import ModelCapabilities, ProviderCapabilities
-from platform.core.config import ModelConfig
-from platform.core.context import ExecutionContext
-from platform.core.messages import Message, Role
-from platform.core.provider import IModelProvider
-from platform.core.response import FinishReason, ModelResponse, TokenUsage
+from ai_platform.core.capabilities import ModelCapabilities, ProviderCapabilities
+from ai_platform.core.config import ModelConfig
+from ai_platform.core.context import ExecutionContext
+from ai_platform.core.messages import Message, Role
+from ai_platform.core.provider import IModelProvider
+from ai_platform.core.response import FinishReason, ModelResponse, TokenUsage
 
 
 class MockModelProvider(IModelProvider):
@@ -59,7 +59,7 @@ class MockModelProvider(IModelProvider):
                 context.cancellation_token.raise_if_cancelled()
 
             msg = Message(role=Role.ASSISTANT, content=chunk)
-            finish = FinishReason.STOP if i == len(chunks) - 1 else FinishReason.STOP
+            finish = FinishReason.STOP
             yield ModelResponse(
                 message=msg,
                 finish_reason=finish,

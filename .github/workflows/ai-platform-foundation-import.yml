@@ -56,13 +56,13 @@ jobs:
         run: |
           rsync -a --delete \
             --exclude='.git/' \
-            --exclude='.github/workflows/ai-platform-foundation-import.yml' \
-            --exclude='.github/workflows/platform-ci.yml' \
+            --exclude='.github/workflows/' \
             --exclude='README.md' \
             --exclude='UPSTREAM_FOUNDATION.md' \
             --exclude='PLATFORM_ARCHITECTURE.md' \
             --exclude='PLATFORM_GOVERNANCE.md' \
             --exclude='AGENTS.md' \
+            --exclude='JULES_PHASE_1_IMPORT_AUDIT.md' \
             --exclude='docs/ROADMAP.md' \
             --exclude='docs/audit/' \
             /tmp/awesome-llm-apps/ ./

@@ -16,10 +16,15 @@ on:
 
 permissions:
   contents: write
+  pull-requests: write
 
 concurrency:
   group: foundation-import
   cancel-in-progress: false
+
+env:
+  UPSTREAM_REPO: https://github.com/Shubhamsaboo/awesome-llm-apps.git
+  SYNC_BRANCH: automation/foundation-sync
 
 jobs:
   sync-foundation:
@@ -35,16 +40,25 @@ jobs:
           git config user.name "ai-platform-bot"
           git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
 
+      - name: Prepare sync branch
+        run: |
+          git fetch origin main
+          git checkout -B "$SYNC_BRANCH" origin/main
+
       - name: Fetch upstream foundation
         run: |
           rm -rf /tmp/awesome-llm-apps
-          git clone --depth 1 https://github.com/Shubhamsaboo/awesome-llm-apps.git /tmp/awesome-llm-apps
+          git clone --depth 1 "$UPSTREAM_REPO" /tmp/awesome-llm-apps
 
-      - name: Import upstream files without replacing platform automation
+      - name: Import upstream files without replacing platform controls
         run: |
           rsync -a --delete \
             --exclude='.git/' \
             --exclude='.github/workflows/ai-platform-foundation-import.yml' \
+            --exclude='README.md' \
+            --exclude='UPSTREAM_FOUNDATION.md' \
+            --exclude='PLATFORM_ARCHITECTURE.md' \
+            --exclude='PLATFORM_GOVERNANCE.md' \
             /tmp/awesome-llm-apps/ ./
 
       - name: Record upstream provenance
@@ -62,12 +76,23 @@ jobs:
           Platform-specific architecture, code, documentation, and modifications added by `mrzulqarnainnadabo/ai-platform` are maintained separately from the upstream project's authorship.
           EOF
 
-      - name: Commit imported foundation
+      - name: Commit sync branch
         run: |
           git add -A
           if git diff --cached --quiet; then
             echo "No upstream changes to import."
             exit 0
           fi
-          git commit -m "chore: import awesome-llm-apps foundation"
-          git push origin HEAD:main
+          git commit -m "chore: sync awesome-llm-apps foundation"
+          git push --force-with-lease origin "$SYNC_BRANCH"
+
+      - name: Open or update review PR
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          gh pr create \
+            --base main \
+            --head "$SYNC_BRANCH" \
+            --title "chore: sync upstream AI foundation" \
+            --body "Automated upstream synchronization from Shubhamsaboo/awesome-llm-apps. Review licensing, dependency, security, and compatibility impact before merging." \
+            2>/dev/null || true

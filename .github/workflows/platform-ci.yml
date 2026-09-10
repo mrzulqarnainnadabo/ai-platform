@@ -1,0 +1,37 @@
+name: Platform CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+
+permissions:
+  contents: read
+
+jobs:
+  baseline:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Repository sanity
+        run: |
+          test -f README.md
+          test -f UPSTREAM_FOUNDATION.md
+          test -f PLATFORM_ARCHITECTURE.md
+          test -f PLATFORM_GOVERNANCE.md
+          test -f AGENTS.md
+          test -f docs/ROADMAP.md
+          echo "Platform foundation documents present."
+
+      - name: Secret-pattern guard
+        shell: bash
+        run: |
+          set -euo pipefail
+          if git grep -n -I -E '(sk-[A-Za-z0-9]{20,}|ghp_[A-Za-z0-9]{20,}|AKIA[0-9A-Z]{16}|-----BEGIN (RSA |EC |OPENSSH )?PRIVATE KEY-----)' -- . ':!docs/audit/*'; then
+            echo "Potential credential pattern detected. Review before merging."
+            exit 1
+          fi
+          echo "No supported high-confidence credential patterns found."

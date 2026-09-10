@@ -1,16 +1,4 @@
-"""Supabase Auth adapter for the application boundary.
-
-This module is intentionally outside ``ai_platform.core`` and ``ai_platform.runtime``.
-It verifies a Supabase access token with Supabase Auth, then maps only trusted,
-application-owned claims into the platform's AuthorizationContext.
-
-Authorization data is fail-closed:
-- anonymous tokens are rejected;
-- a missing tenant claim is rejected;
-- missing/unknown permissions produce an authenticated identity with no capability;
-- user_metadata is never used for authorization;
-- the Supabase service/secret key is never required by this adapter.
-"""
+"""Supabase Auth adapter for the application boundary."""
 
 from __future__ import annotations
 
@@ -29,11 +17,7 @@ class SupabaseAuthenticationError(RuntimeError):
 
 
 class SupabaseAuthContextProvider:
-    """Verify Supabase JWTs and map trusted claims to platform authorization.
-
-    ``get_context`` accepts a raw bearer token from the application boundary.
-    The platform kernel never sees HTTP headers, Supabase SDK objects, or JWTs.
-    """
+    """Verify Supabase JWTs and map only trusted claims to platform authorization."""
 
     def __init__(self, client: Client, *, tenant_claim: str = "ai_platform_tenant_id",
                  permissions_claim: str = "ai_platform_permissions") -> None:
@@ -64,7 +48,7 @@ class SupabaseAuthContextProvider:
 
         try:
             response = self._client.auth.get_claims(jwt=token)
-        except Exception as exc:  # SDK error details must not cross the auth boundary.
+        except Exception as exc:
             raise SupabaseAuthenticationError("Invalid or unverifiable access token") from exc
 
         claims = _claims_from_response(response)
@@ -75,22 +59,21 @@ class SupabaseAuthContextProvider:
         if not subject:
             raise SupabaseAuthenticationError("Access token has no subject")
 
-        audience = claims.get("aud")
-        if not _audience_is_authenticated(audience):
+        if not _audience_is_authenticated(claims.get("aud")):
             raise SupabaseAuthenticationError("Access token audience is not authenticated")
 
         if bool(claims.get("is_anonymous", False)):
             raise SupabaseAuthenticationError("Anonymous Supabase sessions cannot access the platform")
 
         tenant_id = _trusted_claim(claims, self._tenant_claim)
-        if not tenant_id:
+        if not isinstance(tenant_id, str) or not tenant_id:
             raise SupabaseAuthenticationError("Access token has no platform tenant")
 
         permissions = _permission_values(_trusted_claim(claims, self._permissions_claim))
         capabilities = frozenset(
-            capability for value in permissions
-            for capability in _safe_capability(value)
-            if capability is not None
+            capability
+            for value in permissions
+            if (capability := _safe_capability(value)) is not None
         )
 
         return AuthorizationContext(
@@ -110,7 +93,6 @@ class SupabaseAuthConfigurationError(RuntimeError):
 
 
 def _claims_from_response(response: Any) -> Mapping[str, Any]:
-    """Normalize supabase-py get_claims response without trusting unverified data."""
     data = getattr(response, "data", response)
     if isinstance(data, Mapping):
         claims = data.get("claims", data)

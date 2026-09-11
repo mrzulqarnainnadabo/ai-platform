@@ -18,6 +18,10 @@ def test_provider_config_safe_public_dict():
     assert public["model_name"] == "model"
 
 
-def test_provider_config_rejects_remote_http_and_metadata_ip():
-    with pytest.raises(ValueError): ProviderConfig("x", "m", "http://example.com/v1")
-    with pytest.raises(ValueError): ProviderConfig("x", "m", "http://169.254.169.254/latest")
+def test_provider_config_rejects_remote_http_and_blocked_addresses():
+    with pytest.raises(ValueError):
+        ProviderConfig("x", "m", "http://example.com/v1")
+    with pytest.raises(ValueError):
+        ProviderConfig("x", "m", "http://169.254.169.254/latest")
+    with pytest.raises(ValueError):
+        ProviderConfig("x", "m", "https://10.0.0.1/v1")

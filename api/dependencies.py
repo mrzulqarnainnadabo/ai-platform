@@ -50,11 +50,12 @@ def get_authorized_runtime() -> AuthorizedModelRuntime:
     if provider_name == "openai-compatible":
         from ai_platform.providers.openai_compatible import OpenAICompatibleProvider
 
-        base_url = (os.getenv("OPENAI_BASE_URL") or "https://api.openai.com/v1").rstrip("/")
-        api_key = os.getenv("OPENAI_API_KEY", "").strip()
+        base_url = (os.getenv("OPENAI_BASE_URL") or "https://api.openai.com/v1").strip()
+        # Prefer provider-specific key when targeting xAI; otherwise OPENAI_API_KEY.
+        api_key = (os.getenv("OPENAI_API_KEY") or os.getenv("XAI_API_KEY") or "").strip()
         is_local = base_url.startswith(("http://localhost", "http://127.0.0.1", "http://[::1]"))
         if not api_key and not is_local:
-            raise RuntimeError("OPENAI_API_KEY is required for a non-local provider")
+            raise RuntimeError("OPENAI_API_KEY or XAI_API_KEY is required for a non-local provider")
 
         registry.register(OpenAICompatibleProvider(
             api_key=api_key or None,

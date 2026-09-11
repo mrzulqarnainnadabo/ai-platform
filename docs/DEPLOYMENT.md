@@ -19,8 +19,18 @@ Required production environment variables (set in Vercel project settings, never
 
 - `SUPABASE_URL`
 - `SUPABASE_PUBLISHABLE_KEY`
-- `OPENAI_API_KEY` (or equivalent OpenAI-compatible provider key)
-- Optional: `OPENAI_BASE_URL`, `AI_PLATFORM_PROVIDER`, `AI_PLATFORM_PROVIDER_TIMEOUT_SECONDS`, `AI_PLATFORM_TENANT_CLAIM`, `AI_PLATFORM_PERMISSIONS_CLAIM`
+- Provider key (one of):
+  - `OPENAI_API_KEY` for OpenAI or any OpenAI-compatible endpoint
+  - `XAI_API_KEY` when targeting xAI (also accepted as fallback)
+- Optional:
+  - `OPENAI_BASE_URL` (default `https://api.openai.com/v1`; set to `https://api.x.ai/v1` for xAI/Grok)
+  - `AI_PLATFORM_PROVIDER` (default `openai-compatible`)
+  - `AI_PLATFORM_PROVIDER_TIMEOUT_SECONDS`
+  - `AI_PLATFORM_TENANT_CLAIM`
+  - `AI_PLATFORM_PERMISSIONS_CLAIM`
+
+OpenAI and xAI share the same OpenAI-compatible adapter and the same authorization path.
+There is no separate provider auth or policy bypass.
 
 ## Configuration
 

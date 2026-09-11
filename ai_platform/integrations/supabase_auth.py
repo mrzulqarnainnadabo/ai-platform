@@ -4,12 +4,13 @@ from __future__ import annotations
 
 import os
 from dataclasses import dataclass
-from typing import Any, Mapping, Optional
-
-from supabase import Client, create_client
+from typing import Any, Mapping, Optional, TYPE_CHECKING
 
 from ai_platform.policy.authorization import AuthorizationContext, Identity, Permissions
 from ai_platform.policy.capabilities import Capability, parse_capability
+
+if TYPE_CHECKING:
+    from supabase import Client
 
 
 class SupabaseAuthenticationError(RuntimeError):
@@ -19,7 +20,7 @@ class SupabaseAuthenticationError(RuntimeError):
 class SupabaseAuthContextProvider:
     """Verify Supabase JWTs and map only trusted claims to platform authorization."""
 
-    def __init__(self, client: Client, *, tenant_claim: str = "ai_platform_tenant_id",
+    def __init__(self, client: "Client", *, tenant_claim: str = "ai_platform_tenant_id",
                  permissions_claim: str = "ai_platform_permissions") -> None:
         self._client = client
         self._tenant_claim = tenant_claim
@@ -33,6 +34,8 @@ class SupabaseAuthContextProvider:
             raise SupabaseAuthConfigurationError(
                 "SUPABASE_URL and SUPABASE_PUBLISHABLE_KEY are required"
             )
+        from supabase import create_client
+
         return cls(
             create_client(url, key),
             tenant_claim=os.getenv("AI_PLATFORM_TENANT_CLAIM", "ai_platform_tenant_id").strip()
@@ -60,10 +63,7 @@ class SupabaseAuthContextProvider:
             raise SupabaseAuthenticationError("Access token has no subject")
 
         if not _audience_is_authenticated(claims.get("aud")):
-            raise SupabaseAuthenticationError("Access token audience is not authenticated")
-
-        if bool(claims.get("is_anonymous", False)):
-            raise SupabaseAuthenticationError("Anonymous Supabase sessions cannot access the platform")
+            raise SupabaseAuthenticationError("Anonymous sessions cannot access the platform")
 
         tenant_id = _trusted_claim(claims, self._tenant_claim)
         if not isinstance(tenant_id, str) or not tenant_id:

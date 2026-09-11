@@ -114,19 +114,37 @@ async def stream(
     """Stream a governed model response as native SSE for an authenticated caller.
 
     Authorization, capability check, and tenant validation occur before any
-    provider bytes are produced. Denied requests never reach the provider.
+    provider bytes are produced. Denied requests never reach the provider and
+    return HTTP 403 (not a streamed error event).
     """
     try:
         messages, config, provider = request.to_platform_inputs()
-        # Authorization is performed inside runtime.stream via AuthorizedModelRuntime.
-        # We still materialize the generator under the same policy path.
+        # Eagerly materialize the async generator so _authorize / tenant checks
+        # run before we return StreamingResponse. This preserves fail-closed
+        # HTTP status semantics for DENY / REQUIRE_HUMAN.
         stream_gen = runtime.stream(auth, messages, config, provider)
+        aiter = stream_gen.__aiter__()
+        first = await aiter.__anext__()
+    except StopAsyncIteration:
+        async def empty_gen() -> AsyncGenerator[str, None]:
+            yield "data: [DONE]\n\n"
+        return StreamingResponse(empty_gen(), media_type="text/event-stream")
     except Exception as exc:
         raise _map_model_exception(exc) from exc
 
     async def event_generator() -> AsyncGenerator[str, None]:
         try:
-            async for result in stream_gen:
+            payload = {
+                "id": first.response.response_id,
+                "provider": first.response.provider_name,
+                "model": first.response.model_name,
+                "finish_reason": first.response.finish_reason.value,
+                "message": first.response.message.to_dict(),
+                "usage": first.response.usage.to_dict(),
+                "trace_id": first.metadata.get("trace_id"),
+            }
+            yield f"data: {json.dumps(payload)}\n\n"
+            async for result in aiter:
                 payload = {
                     "id": result.response.response_id,
                     "provider": result.response.provider_name,
@@ -139,7 +157,6 @@ async def stream(
                 yield f"data: {json.dumps(payload)}\n\n"
             yield "data: [DONE]\n\n"
         except Exception as exc:
-            # Map to a final error event rather than leaking stack or secrets.
             mapped = _map_model_exception(exc)
             yield f"data: {json.dumps({'error': mapped.detail, 'status': mapped.status_code})}\n\n"
 

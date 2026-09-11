@@ -27,7 +27,7 @@ class FakeRuntime:
         )
 
 
-class ProviderRuntimeMustNotExecute:
+class NonExecutingRuntime:
     async def generate(self, *args, **kwargs):
         raise AssertionError("provider runtime must not execute after policy denial")
 
@@ -98,7 +98,7 @@ def test_model_endpoint_does_not_accept_client_supplied_authorization():
 
 def test_model_endpoint_denies_missing_capability_before_runtime():
     app.dependency_overrides[require_auth] = lambda: auth_context_without_generate()
-    app.dependency_overrides[require_runtime] = lambda: AuthorizedModelRuntime(ProviderRuntimeMustNotExecute())
+    app.dependency_overrides[require_runtime] = lambda: AuthorizedModelRuntime(NonExecutingRuntime())
     try:
         client = TestClient(app)
         response = client.post(

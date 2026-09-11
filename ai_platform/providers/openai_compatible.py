@@ -19,58 +19,15 @@ from ai_platform.core.provider import IModelProvider
 from ai_platform.core.response import FinishReason, ModelResponse, TokenUsage
 
 
-def _validate_provider_base_url(url: str) -> str:
-    """Reject non-HTTPS (except explicit loopback) and private/link-local targets.
-
-    Prevents the provider adapter from becoming a simple SSRF primitive when
-    OPENAI_BASE_URL is misconfigured or attacker-controlled in the host env.
-    """
-    from urllib.parse import urlparse
-    import ipaddress
-
-    cleaned = (url or "").strip().rstrip("/")
-    if not cleaned:
-        raise ValueError("base_url is required")
-
-    parsed = urlparse(cleaned)
-    if parsed.scheme not in ("https", "http"):
-        raise ValueError("base_url scheme must be https (or http for loopback only)")
-    if not parsed.hostname:
-        raise ValueError("base_url must include a hostname")
-
-    host = parsed.hostname.lower()
-    is_loopback_name = host in ("localhost", "127.0.0.1", "::1")
-    if parsed.scheme == "http" and not is_loopback_name:
-        raise ValueError("base_url must use HTTPS unless targeting localhost")
-    if parsed.scheme == "https" and is_loopback_name:
-        # Allow https://localhost for local TLS gateways
-        pass
-
-    # Block literal private / link-local / reserved IPs (including cloud metadata)
-    try:
-        ip = ipaddress.ip_address(host)
-        if ip.is_private or ip.is_link_local or ip.is_loopback or ip.is_reserved or ip.is_multicast:
-            if not (ip.is_loopback and parsed.scheme in ("http", "https")):
-                raise ValueError("base_url must not target private, link-local, or reserved addresses")
-            if not is_loopback_name and not ip.is_loopback:
-                raise ValueError("base_url must not target private, link-local, or reserved addresses")
-    except ValueError as exc:
-        if "base_url must not" in str(exc):
-            raise
-        # hostname is not a literal IP — allow public DNS names (openai, x.ai, etc.)
-        pass
-
-    # Reconstruct without trailing slash; path is preserved if present
-    return cleaned
-
-
 
 class OpenAICompatibleProvider(IModelProvider):
     provider_name = "openai-compatible"
 
     def __init__(self, api_key: Optional[str] = None, base_url: Optional[str] = None, timeout_seconds: float = 60.0) -> None:
+        from ai_platform.config import validate_provider_base_url
+
         self.api_key = api_key or os.getenv("OPENAI_API_KEY") or os.getenv("XAI_API_KEY")
-        self.base_url = _validate_provider_base_url(
+        self.base_url = validate_provider_base_url(
             base_url or os.getenv("OPENAI_BASE_URL") or "https://api.openai.com/v1"
         )
         self.timeout_seconds = timeout_seconds

@@ -7,6 +7,15 @@ identity and explicit platform capability claims before the provider can run.
 from fastapi import Depends, FastAPI, HTTPException, status
 
 from ai_platform import __version__
+from ai_platform.core.errors import (
+    AuthenticationError,
+    CancellationError,
+    InvalidRequestError,
+    ProviderQuotaError,
+    ProviderTimeoutError,
+    ProviderUnavailableError,
+    RateLimitError,
+)
 from ai_platform.health import liveness, readiness
 from ai_platform.policy.authorization import AuthorizationContext
 from ai_platform.policy.errors import HumanApprovalRequiredError, PolicyDeniedError
@@ -53,11 +62,24 @@ async def generate(
         raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="Model capability denied") from exc
     except HumanApprovalRequiredError as exc:
         raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="Human approval required") from exc
-    except ValueError as exc:
+    except (InvalidRequestError, ValueError) as exc:
         raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="Invalid model request") from exc
+    except AuthenticationError as exc:
+        raise HTTPException(status_code=status.HTTP_502_BAD_GATEWAY, detail="Model provider authentication failed") from exc
+    except RateLimitError as exc:
+        raise HTTPException(status_code=status.HTTP_429_TOO_MANY_REQUESTS, detail="Model provider rate limit reached") from exc
+    except ProviderQuotaError as exc:
+        raise HTTPException(status_code=status.HTTP_429_TOO_MANY_REQUESTS, detail="Model provider quota unavailable") from exc
+    except ProviderTimeoutError as exc:
+        raise HTTPException(status_code=status.HTTP_504_GATEWAY_TIMEOUT, detail="Model provider timed out") from exc
+    except CancellationError as exc:
+        # The client initiated cancellation; do not misreport this as provider failure.
+        raise HTTPException(status_code=status.HTTP_499_CLIENT_CLOSED_REQUEST, detail="Model request cancelled") from exc
+    except ProviderUnavailableError as exc:
+        raise HTTPException(status_code=status.HTTP_503_SERVICE_UNAVAILABLE, detail="Model provider unavailable") from exc
     except Exception as exc:
-        raise HTTPException(status_code=status.HTTP_502_BAD_GATEWAY,
-                            detail="Model provider request failed") from exc
+        # Keep the public boundary deliberately generic for unclassified failures.
+        raise HTTPException(status_code=status.HTTP_502_BAD_GATEWAY, detail="Model provider request failed") from exc
 
     return {
         "id": result.response.response_id,

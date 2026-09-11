@@ -52,4 +52,4 @@ Agent loops, RAG, memory, multi-agent orchestration, workflow engines, and UI ar
 
 ## Production gate
 
-The library itself is not declared a deployed production service. Production readiness requires a real host with authenticated requests, consumer integration, externalized secrets, operational telemetry, health/readiness, reproducible deployment, and a tested rollback procedure.
+The FastAPI host on Vercel is the reference deployment surface. Production readiness still requires: production branch = main, Supabase + provider env vars set in Vercel, authenticated smoke tests, and a tested rollback path. Upstream experimental demos remain outside the production kernel.

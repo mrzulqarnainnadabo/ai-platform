@@ -4,7 +4,13 @@ Health endpoints remain public. Model execution requires a verified Supabase
 identity and explicit platform capability claims before the provider can run.
 """
 
+from __future__ import annotations
+
+import json
+from typing import AsyncGenerator
+
 from fastapi import Depends, FastAPI, HTTPException, status
+from fastapi.responses import StreamingResponse
 
 from ai_platform import __version__
 from ai_platform.core.errors import (
@@ -26,6 +32,29 @@ from api.models import GenerateRequest
 app = FastAPI(title="AI Platform", version=__version__)
 
 
+def _map_model_exception(exc: Exception) -> HTTPException:
+    """Map platform exceptions to public HTTP responses without leaking internals."""
+    if isinstance(exc, PolicyDeniedError):
+        return HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="Model capability denied")
+    if isinstance(exc, HumanApprovalRequiredError):
+        return HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="Human approval required")
+    if isinstance(exc, (InvalidRequestError, ValueError)):
+        return HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="Invalid model request")
+    if isinstance(exc, AuthenticationError):
+        return HTTPException(status_code=status.HTTP_502_BAD_GATEWAY, detail="Model provider authentication failed")
+    if isinstance(exc, RateLimitError):
+        return HTTPException(status_code=status.HTTP_429_TOO_MANY_REQUESTS, detail="Model provider rate limit reached")
+    if isinstance(exc, ProviderQuotaError):
+        return HTTPException(status_code=status.HTTP_429_TOO_MANY_REQUESTS, detail="Model provider quota unavailable")
+    if isinstance(exc, ProviderTimeoutError):
+        return HTTPException(status_code=status.HTTP_504_GATEWAY_TIMEOUT, detail="Model provider timed out")
+    if isinstance(exc, CancellationError):
+        return HTTPException(status_code=status.HTTP_499_CLIENT_CLOSED_REQUEST, detail="Model request cancelled")
+    if isinstance(exc, ProviderUnavailableError):
+        return HTTPException(status_code=status.HTTP_503_SERVICE_UNAVAILABLE, detail="Model provider unavailable")
+    return HTTPException(status_code=status.HTTP_502_BAD_GATEWAY, detail="Model provider request failed")
+
+
 @app.get("/api/health/live")
 def health_live() -> dict:
     health = liveness(__version__)
@@ -45,6 +74,10 @@ def api_root() -> dict:
         "version": __version__,
         "status": "foundation",
         "model_execution": "protected-application-boundary-required",
+        "endpoints": {
+            "generate": "POST /api/v1/models/generate",
+            "stream": "POST /api/v1/models/stream",
+        },
     }
 
 
@@ -58,28 +91,8 @@ async def generate(
     try:
         messages, config, provider = request.to_platform_inputs()
         result = await runtime.generate(auth, messages, config, provider)
-    except PolicyDeniedError as exc:
-        raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="Model capability denied") from exc
-    except HumanApprovalRequiredError as exc:
-        raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="Human approval required") from exc
-    except (InvalidRequestError, ValueError) as exc:
-        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="Invalid model request") from exc
-    except AuthenticationError as exc:
-        raise HTTPException(status_code=status.HTTP_502_BAD_GATEWAY, detail="Model provider authentication failed") from exc
-    except RateLimitError as exc:
-        raise HTTPException(status_code=status.HTTP_429_TOO_MANY_REQUESTS, detail="Model provider rate limit reached") from exc
-    except ProviderQuotaError as exc:
-        raise HTTPException(status_code=status.HTTP_429_TOO_MANY_REQUESTS, detail="Model provider quota unavailable") from exc
-    except ProviderTimeoutError as exc:
-        raise HTTPException(status_code=status.HTTP_504_GATEWAY_TIMEOUT, detail="Model provider timed out") from exc
-    except CancellationError as exc:
-        # The client initiated cancellation; do not misreport this as provider failure.
-        raise HTTPException(status_code=status.HTTP_499_CLIENT_CLOSED_REQUEST, detail="Model request cancelled") from exc
-    except ProviderUnavailableError as exc:
-        raise HTTPException(status_code=status.HTTP_503_SERVICE_UNAVAILABLE, detail="Model provider unavailable") from exc
     except Exception as exc:
-        # Keep the public boundary deliberately generic for unclassified failures.
-        raise HTTPException(status_code=status.HTTP_502_BAD_GATEWAY, detail="Model provider request failed") from exc
+        raise _map_model_exception(exc) from exc
 
     return {
         "id": result.response.response_id,
@@ -90,3 +103,52 @@ async def generate(
         "usage": result.response.usage.to_dict(),
         "trace_id": result.metadata.get("trace_id"),
     }
+
+
+@app.post("/api/v1/models/stream")
+async def stream(
+    request: GenerateRequest,
+    auth: AuthorizationContext = Depends(require_auth),
+    runtime: AuthorizedModelRuntime = Depends(require_runtime),
+) -> StreamingResponse:
+    """Stream a governed model response as native SSE for an authenticated caller.
+
+    Authorization, capability check, and tenant validation occur before any
+    provider bytes are produced. Denied requests never reach the provider.
+    """
+    try:
+        messages, config, provider = request.to_platform_inputs()
+        # Authorization is performed inside runtime.stream via AuthorizedModelRuntime.
+        # We still materialize the generator under the same policy path.
+        stream_gen = runtime.stream(auth, messages, config, provider)
+    except Exception as exc:
+        raise _map_model_exception(exc) from exc
+
+    async def event_generator() -> AsyncGenerator[str, None]:
+        try:
+            async for result in stream_gen:
+                payload = {
+                    "id": result.response.response_id,
+                    "provider": result.response.provider_name,
+                    "model": result.response.model_name,
+                    "finish_reason": result.response.finish_reason.value,
+                    "message": result.response.message.to_dict(),
+                    "usage": result.response.usage.to_dict(),
+                    "trace_id": result.metadata.get("trace_id"),
+                }
+                yield f"data: {json.dumps(payload)}\n\n"
+            yield "data: [DONE]\n\n"
+        except Exception as exc:
+            # Map to a final error event rather than leaking stack or secrets.
+            mapped = _map_model_exception(exc)
+            yield f"data: {json.dumps({'error': mapped.detail, 'status': mapped.status_code})}\n\n"
+
+    return StreamingResponse(
+        event_generator(),
+        media_type="text/event-stream",
+        headers={
+            "Cache-Control": "no-cache",
+            "Connection": "keep-alive",
+            "X-Accel-Buffering": "no",
+        },
+    )

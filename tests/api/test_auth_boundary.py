@@ -25,16 +25,41 @@ class FakeRuntime:
             {"trace_id": context.trace_id if context else "trace-1"},
         )
 
+    async def stream(self, messages, config, provider, context=None):
+        assert provider == "openai-compatible"
+        yield RuntimeResult(
+            ModelResponse(
+                message=Message(Role.ASSISTANT, "hello"),
+                finish_reason=FinishReason.STOP,
+                usage=TokenUsage(),
+                model_name=config.model_name,
+                provider_name=provider,
+                response_id="stream-1",
+            ),
+            {"trace_id": context.trace_id if context else "trace-stream"},
+        )
+
 
 class NonExecutingRuntime:
     async def generate(self, *args, **kwargs):
         raise AssertionError("provider runtime must not execute after policy denial")
+
+    async def stream(self, *args, **kwargs):
+        raise AssertionError("provider runtime must not execute after policy denial")
+        yield  # pragma: no cover
 
 
 def auth_context():
     return AuthorizationContext(
         identity=Identity(subject="user-1", tenant_id="tenant-1"),
         permissions=Permissions(frozenset({Capability.MODEL_GENERATE})),
+    )
+
+
+def auth_context_stream():
+    return AuthorizationContext(
+        identity=Identity(subject="user-1", tenant_id="tenant-1"),
+        permissions=Permissions(frozenset({Capability.MODEL_STREAM})),
     )
 
 
@@ -57,6 +82,12 @@ def test_model_endpoint_requires_bearer_token():
     assert response.status_code == 401
 
 
+def test_stream_endpoint_requires_bearer_token():
+    client = TestClient(app)
+    response = client.post("/api/v1/models/stream", json={"model_name": "demo", "messages": [{"role": "user", "content": "hi"}]})
+    assert response.status_code == 401
+
+
 def test_model_endpoint_uses_verified_auth_and_runtime():
     app.dependency_overrides[require_auth] = lambda: auth_context()
     app.dependency_overrides[require_runtime] = lambda: AuthorizedModelRuntime(FakeRuntime())
@@ -71,6 +102,25 @@ def test_model_endpoint_uses_verified_auth_and_runtime():
         assert body["id"] == "response-1"
         assert body["trace_id"]
         assert body["message"]["role"] == "assistant"
+    finally:
+        app.dependency_overrides.clear()
+
+
+def test_stream_endpoint_uses_verified_auth_and_runtime():
+    app.dependency_overrides[require_auth] = lambda: auth_context_stream()
+    app.dependency_overrides[require_runtime] = lambda: AuthorizedModelRuntime(FakeRuntime())
+    try:
+        client = TestClient(app)
+        response = client.post(
+            "/api/v1/models/stream",
+            json={"model_name": "demo", "messages": [{"role": "user", "content": "hi"}]},
+        )
+        assert response.status_code == 200
+        assert "text/event-stream" in response.headers.get("content-type", "")
+        body = response.text
+        assert "data:" in body
+        assert "stream-1" in body or "hello" in body
+        assert "[DONE]" in body
     finally:
         app.dependency_overrides.clear()
 
@@ -102,6 +152,21 @@ def test_model_endpoint_denies_missing_capability_before_runtime():
         client = TestClient(app)
         response = client.post(
             "/api/v1/models/generate",
+            json={"model_name": "demo", "messages": [{"role": "user", "content": "hi"}]},
+        )
+        assert response.status_code == 403
+        assert response.json()["detail"] == "Model capability denied"
+    finally:
+        app.dependency_overrides.clear()
+
+
+def test_stream_endpoint_denies_missing_capability_before_runtime():
+    app.dependency_overrides[require_auth] = lambda: auth_context_without_generate()
+    app.dependency_overrides[require_runtime] = lambda: AuthorizedModelRuntime(NonExecutingRuntime())
+    try:
+        client = TestClient(app)
+        response = client.post(
+            "/api/v1/models/stream",
             json={"model_name": "demo", "messages": [{"role": "user", "content": "hi"}]},
         )
         assert response.status_code == 403

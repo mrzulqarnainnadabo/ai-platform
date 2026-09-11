@@ -12,6 +12,9 @@ def test_api_root_does_not_expose_model_execution():
     body = response.json()
     assert body["status"] == "foundation"
     assert body["model_execution"] == "protected-application-boundary-required"
+    assert "endpoints" in body
+    assert body["endpoints"]["generate"] == "POST /api/v1/models/generate"
+    assert body["endpoints"]["stream"] == "POST /api/v1/models/stream"
 
 
 def test_liveness_is_healthy():

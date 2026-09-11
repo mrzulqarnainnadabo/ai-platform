@@ -7,6 +7,14 @@ capability claims before any provider is contacted.
 
 from __future__ import annotations
 
+import sys
+from pathlib import Path as _Path
+
+# Ensure repository root is on sys.path when Vercel invokes api/index.py.
+_ROOT = _Path(__file__).resolve().parents[1]
+if str(_ROOT) not in sys.path:
+    sys.path.insert(0, str(_ROOT))
+
 import json
 from typing import AsyncGenerator
 

@@ -2,7 +2,9 @@ name: Platform CI
 
 on:
   push:
-    branches: [main]
+    branches:
+      - main
+      - "productionization/**"
   pull_request:
     branches: [main]
 
@@ -25,6 +27,7 @@ jobs:
           test -f UPSTREAM_FOUNDATION.md
           test -f PLATFORM_ARCHITECTURE.md
           test -f PLATFORM_GOVERNANCE.md
+          test -f PLATFORM_STRATEGY.md
           test -f AGENTS.md
           test -f docs/ROADMAP.md
       - name: Import and compile checks

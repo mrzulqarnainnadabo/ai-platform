@@ -28,10 +28,22 @@ class FakeRuntime:
         )
 
 
+class DeniedRuntime:
+    async def generate(self, *args, **kwargs):
+        raise AssertionError("provider runtime must not execute after policy denial")
+
+
 def auth_context():
     return AuthorizationContext(
         identity=Identity(subject="user-1", tenant_id="tenant-1"),
         permissions=Permissions(frozenset({Capability.MODEL_GENERATE})),
+    )
+
+
+def auth_context_without_generate():
+    return AuthorizationContext(
+        identity=Identity(subject="user-1", tenant_id="tenant-1"),
+        permissions=Permissions(frozenset()),
     )
 
 
@@ -81,5 +93,20 @@ def test_model_endpoint_does_not_accept_client_supplied_authorization():
             },
         )
         assert response.status_code == 200
+    finally:
+        app.dependency_overrides.clear()
+
+
+def test_model_endpoint_denies_missing_capability_before_runtime():
+    app.dependency_overrides[require_auth] = lambda: auth_context_without_generate()
+    app.dependency_overrides[require_runtime] = lambda: DeniedRuntime()
+    try:
+        client = TestClient(app)
+        response = client.post(
+            "/api/v1/models/generate",
+            json={"model_name": "demo", "messages": [{"role": "user", "content": "hi"}]},
+        )
+        assert response.status_code == 403
+        assert response.json()["detail"] == "Model capability denied"
     finally:
         app.dependency_overrides.clear()

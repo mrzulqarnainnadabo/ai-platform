@@ -2,7 +2,6 @@ from fastapi.testclient import TestClient
 
 from api.dependencies import require_auth, require_runtime
 from api.index import app
-from ai_platform.core.config import ModelConfig
 from ai_platform.core.messages import Message, Role
 from ai_platform.core.response import FinishReason, ModelResponse, TokenUsage
 from ai_platform.policy.authorization import AuthorizationContext, Identity, Permissions
@@ -28,7 +27,7 @@ class FakeRuntime:
         )
 
 
-class DeniedRuntime:
+class ProviderRuntimeMustNotExecute:
     async def generate(self, *args, **kwargs):
         raise AssertionError("provider runtime must not execute after policy denial")
 
@@ -61,7 +60,7 @@ def test_model_endpoint_requires_bearer_token():
 
 def test_model_endpoint_uses_verified_auth_and_runtime():
     app.dependency_overrides[require_auth] = lambda: auth_context()
-    app.dependency_overrides[require_runtime] = lambda: FakeRuntime()
+    app.dependency_overrides[require_runtime] = lambda: AuthorizedModelRuntime(FakeRuntime())
     try:
         client = TestClient(app)
         response = client.post(
@@ -79,7 +78,7 @@ def test_model_endpoint_uses_verified_auth_and_runtime():
 
 def test_model_endpoint_does_not_accept_client_supplied_authorization():
     app.dependency_overrides[require_auth] = lambda: auth_context()
-    app.dependency_overrides[require_runtime] = lambda: FakeRuntime()
+    app.dependency_overrides[require_runtime] = lambda: AuthorizedModelRuntime(FakeRuntime())
     try:
         client = TestClient(app)
         response = client.post(
@@ -99,7 +98,7 @@ def test_model_endpoint_does_not_accept_client_supplied_authorization():
 
 def test_model_endpoint_denies_missing_capability_before_runtime():
     app.dependency_overrides[require_auth] = lambda: auth_context_without_generate()
-    app.dependency_overrides[require_runtime] = lambda: DeniedRuntime()
+    app.dependency_overrides[require_runtime] = lambda: AuthorizedModelRuntime(ProviderRuntimeMustNotExecute())
     try:
         client = TestClient(app)
         response = client.post(

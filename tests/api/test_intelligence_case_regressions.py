@@ -145,3 +145,9 @@ def test_cases_page_escapes_browser_configuration(monkeypatch):
     assert '&lt;script&gt;alert(1)&lt;/script&gt;' not in body
     assert '\\u003cscript>alert(1)\\u003c/script>' in body
     assert '\\u003cscript>alert(2)\\u003c/script>' in body
+
+
+def test_cases_page_includes_email_redirect_to_option():
+    body = cases_page().body.decode("utf-8")
+    assert "emailRedirectTo" in body
+    assert "${window.location.origin}/app/cases" in body

@@ -1,3 +1,4 @@
+import asyncio
 from types import SimpleNamespace
 
 import pytest
@@ -49,8 +50,7 @@ def test_cross_tenant_read_is_denied():
         service.get(auth(Capability.CASE_READ, tenant="tenant-b"), case.id)
 
 
-@pytest.mark.asyncio
-async def test_triage_requires_capability_before_model_call():
+def test_triage_requires_capability_before_model_call():
     repo = InMemoryCaseRepository()
     service = CaseService(repo)
     case = service.create(auth(Capability.CASE_CREATE), "Problem report")
@@ -60,11 +60,10 @@ async def test_triage_requires_capability_before_model_call():
             raise AssertionError("model must not be called")
 
     with pytest.raises(PolicyDeniedError):
-        await service.triage(auth(Capability.CASE_READ), case.id, NeverCalled(), model_name="test")
+        asyncio.run(service.triage(auth(Capability.CASE_READ), case.id, NeverCalled(), model_name="test"))
 
 
-@pytest.mark.asyncio
-async def test_triage_persists_model_assertions_and_questions():
+def test_triage_persists_model_assertions_and_questions():
     repo = InMemoryCaseRepository()
     service = CaseService(repo)
     case = service.create(auth(Capability.CASE_CREATE), "Clinic has no medicines")
@@ -79,12 +78,12 @@ async def test_triage_persists_model_assertions_and_questions():
             )))
             return SimpleNamespace(response=response)
 
-    aggregate = await service.triage(
+    aggregate = asyncio.run(service.triage(
         auth(Capability.CASE_CREATE, Capability.CASE_READ, Capability.CASE_TRIAGE),
         case.id,
         FakeRuntime(),
         model_name="test",
-    )
+    ))
     model_assertions = [x for x in aggregate.assertions if x.created_by == "model"]
     assert [x.kind for x in model_assertions] == [AssertionKind.CLAIM, AssertionKind.INFERENCE]
     assert aggregate.missing_evidence_questions == ["Can staff provide stock records?"]

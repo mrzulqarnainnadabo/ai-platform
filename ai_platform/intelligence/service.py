@@ -105,6 +105,8 @@ class CaseService:
     async def triage(self, auth: AuthorizationContext, case_id: str, runtime: AuthorizedModelRuntime,
                      *, model_name: str, provider_name: str = "openai-compatible") -> CaseAggregate:
         self.authorize(auth, Capability.CASE_TRIAGE)
+        # Defense in depth: also require model.generate so 403 happens before runtime work.
+        self.authorize(auth, Capability.MODEL_GENERATE)
         case = self._get_owned(auth, case_id)
         config = ModelConfig(
             model_name=model_name,
@@ -187,18 +189,30 @@ class EvidenceService:
         self.repository.save_evidence(evidence)
         if assertion_id:
             assertion.evidence_ids.append(evidence.id)
-            assertion.requires_evidence = False
+            # Linking evidence does not promote assertion kind to fact; that is a later verification step.
             self.repository.save_assertion(assertion)
-        canonical = {"case_id": case_id, "assertion_id": assertion_id, "source_type": source_type.value}
+        # Audit is case-scoped so CaseAggregate can list it; raw body is not stored in audit.
+        canonical = {
+            "case_id": case_id,
+            "evidence_id": evidence.id,
+            "assertion_id": assertion_id,
+            "source_type": source_type.value,
+            "has_uri": bool(source_uri),
+        }
         canonical_text = json.dumps(canonical, sort_keys=True, separators=(",", ":"))
         self.repository.save_audit(AuditEvent(
             id=uuid4().hex,
             tenant_id=auth.identity.tenant_id,
             actor_subject=auth.identity.subject,
             action="evidence.attached",
-            object_type="evidence",
-            object_id=evidence.id,
+            object_type="case",
+            object_id=case_id,
             payload_digest=hashlib.sha256(canonical_text.encode("utf-8")).hexdigest(),
-            metadata={"keys": sorted(canonical.keys())},
+            metadata={
+                "evidence_id": evidence.id,
+                "assertion_id": assertion_id,
+                "source_type": source_type.value,
+                "has_uri": bool(source_uri),
+            },
         ))
         return evidence

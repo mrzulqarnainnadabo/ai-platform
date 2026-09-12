@@ -1,8 +1,9 @@
 """Authentication-enhanced wrapper for the Intelligence Case workspace.
 
-Keeps the existing case UI intact while adding a low-friction Google OAuth
-entry point. Supabase remains the source of truth for authentication and the
-existing server-side authorization boundary is unchanged.
+Keeps the existing case UI intact while adding low-friction Google OAuth and
+an explicit production-safe email confirmation redirect. Supabase remains the
+source of truth for authentication and the existing server-side authorization
+boundary is unchanged.
 """
 from __future__ import annotations
 
@@ -12,15 +13,21 @@ from api.cases_frontend import cases_page
 
 
 def cases_auth_page() -> HTMLResponse:
-    """Return the existing case workspace with Google sign-in added."""
+    """Return the existing case workspace with resilient auth entry points."""
     response = cases_page()
     html = response.body.decode("utf-8")
 
     # Expose only the browser-safe Supabase client on window so the injected
-    # Google button can use the same client as the existing email/password flow.
+    # auth helpers can use the same client as the existing email/password flow.
     html = html.replace(
         'const sb=window.supabase.createClient(SUPABASE_URL,SUPABASE_KEY);',
-        'const sb=window.supabase.createClient(SUPABASE_URL,SUPABASE_KEY);window.__AI_PLATFORM_SB=sb;',
+        '''const sb=window.supabase.createClient(SUPABASE_URL,SUPABASE_KEY);
+window.__AI_PLATFORM_SB=sb;
+const __aiPlatformSignUp=sb.auth.signUp.bind(sb.auth);
+sb.auth.signUp=(credentials,options={})=>__aiPlatformSignUp(credentials,{
+  ...options,
+  emailRedirectTo:`${window.location.origin}/app/cases`
+});''',
         1,
     )
 

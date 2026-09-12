@@ -50,6 +50,42 @@ def test_cross_tenant_read_is_denied():
         service.get(auth(Capability.CASE_READ, tenant="tenant-b"), case.id)
 
 
+def test_cross_tenant_evidence_is_denied():
+    repo = InMemoryCaseRepository()
+    case_service = CaseService(repo)
+    evidence_service = EvidenceService(repo)
+    case = case_service.create(auth(Capability.CASE_CREATE), "Tenant A case")
+    with pytest.raises(PolicyDeniedError):
+        evidence_service.attach(
+            auth(Capability.EVIDENCE_ATTACH, tenant="tenant-b"),
+            case.id,
+            body="forged",
+            source_type=EvidenceSourceType.USER_TEXT,
+            source_uri=None,
+            note=None,
+            assertion_id=None,
+        )
+
+
+def test_cross_case_assertion_link_is_denied():
+    repo = InMemoryCaseRepository()
+    case_service = CaseService(repo)
+    evidence_service = EvidenceService(repo)
+    case_a = case_service.create(auth(Capability.CASE_CREATE), "Case A")
+    case_b = case_service.create(auth(Capability.CASE_CREATE), "Case B")
+    assertion_b = case_service.get(auth(Capability.CASE_READ), case_b.id).assertions[0]
+    with pytest.raises(ValueError):
+        evidence_service.attach(
+            auth(Capability.EVIDENCE_ATTACH),
+            case_a.id,
+            body="link attempt",
+            source_type=EvidenceSourceType.USER_TEXT,
+            source_uri=None,
+            note=None,
+            assertion_id=assertion_b.id,
+        )
+
+
 def test_triage_requires_capability_before_model_call():
     repo = InMemoryCaseRepository()
     service = CaseService(repo)
@@ -61,6 +97,26 @@ def test_triage_requires_capability_before_model_call():
 
     with pytest.raises(PolicyDeniedError):
         asyncio.run(service.triage(auth(Capability.CASE_READ), case.id, NeverCalled(), model_name="test"))
+
+
+def test_triage_requires_model_generate_before_model_call():
+    repo = InMemoryCaseRepository()
+    service = CaseService(repo)
+    case = service.create(auth(Capability.CASE_CREATE), "Problem report")
+
+    class NeverCalled:
+        async def generate(self, *args, **kwargs):
+            raise AssertionError("model must not be called")
+
+    with pytest.raises(PolicyDeniedError):
+        asyncio.run(
+            service.triage(
+                auth(Capability.CASE_TRIAGE),
+                case.id,
+                NeverCalled(),
+                model_name="test",
+            )
+        )
 
 
 def test_triage_persists_model_assertions_and_questions():
@@ -79,7 +135,12 @@ def test_triage_persists_model_assertions_and_questions():
             return SimpleNamespace(response=response)
 
     aggregate = asyncio.run(service.triage(
-        auth(Capability.CASE_CREATE, Capability.CASE_READ, Capability.CASE_TRIAGE),
+        auth(
+            Capability.CASE_CREATE,
+            Capability.CASE_READ,
+            Capability.CASE_TRIAGE,
+            Capability.MODEL_GENERATE,
+        ),
         case.id,
         FakeRuntime(),
         model_name="test",
@@ -90,7 +151,7 @@ def test_triage_persists_model_assertions_and_questions():
     assert [event.action for event in aggregate.audit_events] == ["case.created", "case.triaged"]
 
 
-def test_evidence_requires_provenance_and_emits_audit():
+def test_evidence_requires_provenance_and_emits_case_scoped_audit():
     repo = InMemoryCaseRepository()
     case_service = CaseService(repo)
     evidence_service = EvidenceService(repo)
@@ -105,5 +166,8 @@ def test_evidence_requires_provenance_and_emits_audit():
         source_uri="document:stock-record-1", note="provided by reporter", assertion_id=None,
     )
     assert evidence.source_uri == "document:stock-record-1"
-    assert [event.action for event in repo.list_audit(case.id)] == ["case.created"]
-    assert [event.action for event in repo.list_audit(evidence.id)] == ["evidence.attached"]
+    aggregate = case_service.get(auth(Capability.CASE_READ), case.id)
+    assert [event.action for event in aggregate.audit_events] == ["case.created", "evidence.attached"]
+    attached = next(e for e in aggregate.audit_events if e.action == "evidence.attached")
+    assert attached.metadata.get("evidence_id") == evidence.id
+    assert "record excerpt" not in str(attached.metadata)

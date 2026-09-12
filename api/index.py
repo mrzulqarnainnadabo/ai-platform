@@ -8,7 +8,7 @@ from fastapi import Request, Response
 from api.analytics import capture
 from api.original_index import app, handler
 from api.intelligence import router as intelligence_router
-from api.cases_frontend import cases_page
+from api.cases_auth_frontend import cases_auth_page
 
 app.include_router(intelligence_router)
 
@@ -78,7 +78,7 @@ async def product_analytics(request: Request, call_next):
 
 @app.get("/app/cases", include_in_schema=False)
 def intelligence_cases_app() -> Response:
-    return cases_page()
+    return cases_auth_page()
 
 
 # Extend the existing OpenAPI security decoration to the new authenticated case routes.

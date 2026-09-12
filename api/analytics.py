@@ -8,9 +8,12 @@ import urllib.request
 from typing import Any
 
 POSTHOG_HOST = (os.getenv("POSTHOG_HOST") or "https://us.i.posthog.com").rstrip("/")
-# PostHog project tokens are public client identifiers. Prefer the environment
-# variable so deployments can rotate/configure the project without code changes.
-POSTHOG_PROJECT_TOKEN = os.getenv("POSTHOG_PROJECT_TOKEN", "")
+# This is a PostHog project token (public client identifier), not a secret.
+# Deployment configuration can override it without changing application code.
+POSTHOG_PROJECT_TOKEN = os.getenv(
+    "POSTHOG_PROJECT_TOKEN",
+    "phc_znLxdWo55FqfwRkwmzdkeYgTLjFG8y5dwbuxFhJxZP7j",
+)
 
 
 def capture(event: str, distinct_id: str, properties: dict[str, Any] | None = None) -> None:

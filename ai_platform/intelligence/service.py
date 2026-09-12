@@ -7,13 +7,15 @@ from __future__ import annotations
 
 import hashlib
 import json
-from dataclasses import asdict
+from datetime import datetime, timezone
 from typing import Any, Optional
+from uuid import uuid4
 
 from ai_platform.core.config import ModelConfig, ResponseFormat, ResponseFormatType
 from ai_platform.core.messages import Message
 from ai_platform.policy.authorization import AuthorizationContext
 from ai_platform.policy.capabilities import Capability
+from ai_platform.policy.decisions import Decision
 from ai_platform.policy.evaluator import SimplePermissionEvaluator
 from ai_platform.policy.errors import PolicyDeniedError
 from ai_platform.runtime.authorized import AuthorizedModelRuntime
@@ -47,9 +49,9 @@ class CaseService:
         self.repository = repository
         self.evaluator = evaluator or SimplePermissionEvaluator()
 
-    def _require(self, auth: AuthorizationContext, capability: Capability) -> None:
+    def authorize(self, auth: AuthorizationContext, capability: Capability) -> None:
         decision = self.evaluator.evaluate(auth, capability)
-        if decision.decision.value != "allow":
+        if decision.decision != Decision.ALLOW:
             raise PolicyDeniedError(decision.reason)
 
     def _get_owned(self, auth: AuthorizationContext, case_id: str) -> Case:
@@ -64,7 +66,7 @@ class CaseService:
         canonical = json.dumps(payload, sort_keys=True, separators=(",", ":"), default=str)
         digest = hashlib.sha256(canonical.encode("utf-8")).hexdigest()
         self.repository.save_audit(AuditEvent(
-            id=__import__("uuid").uuid4().hex,
+            id=uuid4().hex,
             tenant_id=auth.identity.tenant_id,
             actor_subject=auth.identity.subject,
             action=action,
@@ -75,7 +77,7 @@ class CaseService:
         ))
 
     def create(self, auth: AuthorizationContext, summary: str, title: Optional[str] = None) -> Case:
-        self._require(auth, Capability.CASE_CREATE)
+        self.authorize(auth, Capability.CASE_CREATE)
         summary = summary.strip()
         if not summary or len(summary) > 10000:
             raise InvalidCaseInput("summary must contain 1-10000 characters")
@@ -90,18 +92,19 @@ class CaseService:
         return case
 
     def get(self, auth: AuthorizationContext, case_id: str) -> CaseAggregate:
-        self._require(auth, Capability.CASE_READ)
+        self.authorize(auth, Capability.CASE_READ)
         case = self._get_owned(auth, case_id)
         return CaseAggregate(
             case=case,
             assertions=self.repository.list_assertions(case_id),
             evidence=self.repository.list_evidence(case_id),
             audit_events=self.repository.list_audit(case_id),
+            missing_evidence_questions=list(case.missing_evidence_questions),
         )
 
     async def triage(self, auth: AuthorizationContext, case_id: str, runtime: AuthorizedModelRuntime,
                      *, model_name: str, provider_name: str = "openai-compatible") -> CaseAggregate:
-        self._require(auth, Capability.CASE_TRIAGE)
+        self.authorize(auth, Capability.CASE_TRIAGE)
         case = self._get_owned(auth, case_id)
         config = ModelConfig(
             model_name=model_name,
@@ -142,16 +145,15 @@ class CaseService:
         parsed = parse_triage_output(result.response.message.get_text_content())
         for item in parsed.assertions:
             assertion = new_assertion(case_id=case.id, text=item["text"], kind=item["kind"],
-                                      created_by="model", requires_evidence=item["kind"] in {AssertionKind.CLAIM, AssertionKind.INFERENCE, AssertionKind.UNKNOWN})
+                                      created_by="model", requires_evidence=True)
             self.repository.save_assertion(assertion)
         case.status = CaseStatus.IN_PROGRESS
-        case.updated_at = __import__("datetime").datetime.now(__import__("datetime").timezone.utc)
+        case.updated_at = datetime.now(timezone.utc)
+        case.missing_evidence_questions = parsed.missing_evidence_questions
         self.repository.save_case(case)
         self._audit(auth, "case.triaged", "case", case.id,
                     {"assertion_count": len(parsed.assertions), "missing_evidence_count": len(parsed.missing_evidence_questions)})
-        aggregate = self.get(auth, case.id)
-        aggregate.missing_evidence_questions = parsed.missing_evidence_questions
-        return aggregate
+        return self.get(auth, case.id)
 
 
 class EvidenceService:
@@ -159,15 +161,12 @@ class EvidenceService:
         self.repository = repository
         self.evaluator = evaluator or SimplePermissionEvaluator()
 
-    def _require(self, auth: AuthorizationContext) -> None:
-        decision = self.evaluator.evaluate(auth, Capability.EVIDENCE_ATTACH)
-        if decision.decision.value != "allow":
-            raise PolicyDeniedError(decision.reason)
-
     def attach(self, auth: AuthorizationContext, case_id: str, *, body: str,
                source_type: EvidenceSourceType, source_uri: Optional[str], note: Optional[str],
                assertion_id: Optional[str]) -> Evidence:
-        self._require(auth)
+        decision = self.evaluator.evaluate(auth, Capability.EVIDENCE_ATTACH)
+        if decision.decision != Decision.ALLOW:
+            raise PolicyDeniedError(decision.reason)
         case = self.repository.get_case(case_id)
         if case is None:
             raise CaseNotFoundError(case_id)
@@ -188,11 +187,18 @@ class EvidenceService:
         self.repository.save_evidence(evidence)
         if assertion_id:
             assertion.evidence_ids.append(evidence.id)
-            if assertion.kind == AssertionKind.FACT:
-                assertion.requires_evidence = False
-            else:
-                assertion.requires_evidence = False
+            assertion.requires_evidence = False
             self.repository.save_assertion(assertion)
-        self._audit(auth, "evidence.attached", "evidence", evidence.id,
-                    {"case_id": case_id, "assertion_id": assertion_id, "source_type": source_type.value})
+        canonical = {"case_id": case_id, "assertion_id": assertion_id, "source_type": source_type.value}
+        canonical_text = json.dumps(canonical, sort_keys=True, separators=(",", ":"))
+        self.repository.save_audit(AuditEvent(
+            id=uuid4().hex,
+            tenant_id=auth.identity.tenant_id,
+            actor_subject=auth.identity.subject,
+            action="evidence.attached",
+            object_type="evidence",
+            object_id=evidence.id,
+            payload_digest=hashlib.sha256(canonical_text.encode("utf-8")).hexdigest(),
+            metadata={"keys": sorted(canonical.keys())},
+        ))
         return evidence

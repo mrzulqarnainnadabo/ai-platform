@@ -3,7 +3,6 @@
 from __future__ import annotations
 
 import os
-from dataclasses import dataclass
 from typing import Any, Mapping, Optional, TYPE_CHECKING
 
 from ai_platform.policy.authorization import AuthorizationContext, Identity, Permissions
@@ -82,14 +81,8 @@ class SupabaseAuthContextProvider:
         )
 
 
-@dataclass(frozen=True)
 class SupabaseAuthConfigurationError(RuntimeError):
     """Raised when application Supabase auth configuration is incomplete."""
-
-    message: str
-
-    def __str__(self) -> str:
-        return self.message
 
 
 def _claims_from_response(response: Any) -> Mapping[str, Any]:

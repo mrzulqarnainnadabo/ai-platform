@@ -4,6 +4,7 @@ from fastapi import Response
 from api.original_index import app, handler
 from api.intelligence import router as intelligence_router
 from api.cases_frontend import cases_page
+from api.demo_cases_frontend import demo_cases_page
 
 app.include_router(intelligence_router)
 
@@ -14,6 +15,12 @@ app.include_router(intelligence_router)
 @app.get("/app/cases", include_in_schema=False)
 def intelligence_cases_app() -> Response:
     return cases_page()
+
+
+@app.get("/app/cases/demo", include_in_schema=False)
+def intelligence_cases_demo_app() -> Response:
+    """Serve the development-only mock workspace when server-gated."""
+    return demo_cases_page()
 
 
 # Extend the existing OpenAPI security decoration to the new authenticated case routes.

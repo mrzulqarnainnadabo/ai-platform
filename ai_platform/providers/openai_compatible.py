@@ -7,7 +7,6 @@ import threading
 import urllib.error
 import urllib.request
 from typing import AsyncGenerator, List, Optional
-
 from ai_platform.core.capabilities import ModelCapabilities, ProviderCapabilities
 from ai_platform.core.config import ModelConfig
 from ai_platform.core.context import ExecutionContext
@@ -19,13 +18,25 @@ from ai_platform.core.provider import IModelProvider
 from ai_platform.core.response import FinishReason, ModelResponse, TokenUsage
 
 
+_RESERVED_PAYLOAD_KEYS = frozenset({
+    "model",
+    "messages",
+    "stream",
+    "temperature",
+    "top_p",
+    "max_tokens",
+    "stop",
+    "response_format",
+    "tools",
+    "tool_choice",
+})
+
 
 class OpenAICompatibleProvider(IModelProvider):
     provider_name = "openai-compatible"
 
     def __init__(self, api_key: Optional[str] = None, base_url: Optional[str] = None, timeout_seconds: float = 60.0) -> None:
         from ai_platform.config import validate_provider_base_url
-
         self.api_key = api_key or os.getenv("OPENAI_API_KEY") or os.getenv("XAI_API_KEY")
         self.base_url = validate_provider_base_url(
             base_url or os.getenv("OPENAI_BASE_URL") or "https://api.openai.com/v1"
@@ -36,6 +47,11 @@ class OpenAICompatibleProvider(IModelProvider):
         return ProviderCapabilities(provider_name=self.provider_name, supported_models=[], model_capabilities={})
 
     def _payload(self, messages: List[Message], config: ModelConfig, stream: bool = False) -> bytes:
+        conflicting = _RESERVED_PAYLOAD_KEYS.intersection(config.extra_params)
+        if conflicting:
+            names = ", ".join(sorted(conflicting))
+            raise ValueError(f"extra_params cannot override request fields: {names}")
+
         body = {"model": config.model_name, "messages": [self._message(m) for m in messages], "stream": stream}
         if config.temperature is not None: body["temperature"] = config.temperature
         if config.top_p is not None: body["top_p"] = config.top_p

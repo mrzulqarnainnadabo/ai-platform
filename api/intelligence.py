@@ -87,7 +87,9 @@ def _raise(exc: Exception) -> HTTPException:
 @router.post("")
 async def create_case(request: CaseCreateRequest, auth: AuthorizationContext = Depends(require_auth)) -> dict:
     try:
-        return _aggregate_response(_case_service.get(auth, _case_service.create(auth, request.summary, request.title).id))
+        # Creation is authorized independently; the response must not silently
+        # require case.read as a second capability just to serialize the result.
+        return _aggregate_response(_case_service.create_aggregate(auth, request.summary, request.title))
     except Exception as exc:
         raise _raise(exc) from exc
 

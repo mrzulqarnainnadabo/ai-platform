@@ -9,8 +9,8 @@ from fastapi import APIRouter, Depends, HTTPException, status
 from pydantic import BaseModel, Field
 
 from ai_platform.intelligence.models import CaseAggregate, EvidenceSourceType
-from ai_platform.intelligence.repository import InMemoryCaseRepository
 from ai_platform.intelligence.service import CaseNotFoundError, CaseService, EvidenceService, InvalidCaseInput
+from ai_platform.intelligence.store import get_case_repository
 from ai_platform.policy.authorization import AuthorizationContext
 from ai_platform.policy.capabilities import Capability
 from ai_platform.policy.errors import PolicyDeniedError
@@ -18,7 +18,7 @@ from ai_platform.runtime.authorized import AuthorizedModelRuntime
 from api.dependencies import require_auth, require_runtime
 
 router = APIRouter(prefix="/api/v1/cases", tags=["cases"])
-_repository = InMemoryCaseRepository()
+_repository = get_case_repository()
 _case_service = CaseService(_repository)
 _evidence_service = EvidenceService(_repository)
 

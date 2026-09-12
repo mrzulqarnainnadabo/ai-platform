@@ -5,7 +5,7 @@ import asyncio
 import pytest
 
 from api.cases_frontend import cases_page
-from ai_platform.intelligence.models import EvidenceSourceType
+from ai_platform.intelligence.models import AuditEvent, EvidenceSourceType
 from ai_platform.intelligence.repository import InMemoryCaseRepository
 from ai_platform.intelligence.service import CaseNotFoundError, CaseService, EvidenceService, InvalidCaseInput
 from ai_platform.intelligence.store import CaseStoreConfigurationError, get_case_repository, reset_case_repository_cache
@@ -109,6 +109,29 @@ def test_case_listing_is_tenant_scoped():
     listed = service.list(read_a)
     assert [case.id for case in listed] == [first.id]
     assert all(case.tenant_id == "tenant-a" for case in listed)
+
+
+def test_audit_reads_are_tenant_scoped():
+    repository = InMemoryCaseRepository()
+    case_service = CaseService(repository)
+    tenant_a = auth_context(Capability.CASE_CREATE, Capability.CASE_READ, tenant_id="tenant-a")
+    tenant_b = auth_context(Capability.CASE_CREATE, Capability.CASE_READ, tenant_id="tenant-b")
+
+    case_a = case_service.create(tenant_a, "tenant a case")
+    repository.save_audit(AuditEvent(
+        id="audit-other-tenant",
+        tenant_id="tenant-b",
+        actor_subject="user-b",
+        action="case.created",
+        object_type="case",
+        object_id=case_a.id,
+        payload_digest="digest",
+        metadata={},
+    ))
+
+    aggregate = case_service.get(tenant_a, case_a.id)
+    assert all(event.tenant_id == "tenant-a" for event in aggregate.audit_events)
+    assert all(event.id != "audit-other-tenant" for event in aggregate.audit_events)
 
 
 def test_cases_page_escapes_browser_configuration(monkeypatch):

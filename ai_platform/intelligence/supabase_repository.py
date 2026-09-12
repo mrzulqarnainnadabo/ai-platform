@@ -56,7 +56,6 @@ class SupabaseCaseRepository:
     """Maps domain objects to ai_platform_* tables from migration 0003."""
 
     def __init__(self, client: Any) -> None:
-        # duck-typed supabase Client (avoids hard import at module import time for tests)
         self._client = client
 
     def _tenant_for_case(self, case_id: str) -> str:
@@ -206,16 +205,17 @@ class SupabaseCaseRepository:
             "metadata": dict(event.metadata),
             "created_at": event.created_at.isoformat(),
         }
-        # Append-only: insert, do not upsert over existing audit rows.
         self._client.table("ai_platform_audit_events").insert(payload).execute()
 
-    def list_audit(self, object_id: str) -> list[AuditEvent]:
-        row = (
+    def list_audit(self, object_id: str, tenant_id: str | None = None) -> list[AuditEvent]:
+        query = (
             self._client.table("ai_platform_audit_events")
             .select("*")
             .eq("object_id", object_id)
-            .execute()
         )
+        if tenant_id is not None:
+            query = query.eq("tenant_id", tenant_id)
+        row = query.execute()
         data = getattr(row, "data", None) or []
         out: list[AuditEvent] = []
         for r in data:

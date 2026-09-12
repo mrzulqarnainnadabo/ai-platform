@@ -1,7 +1,9 @@
-"""Repository contracts and a deterministic in-memory implementation.
+"""Case repository contracts.
 
-The interface keeps persistence replaceable. The v1 API uses this implementation;
+In-memory implementation is a deliberate vertical-slice boundary;
 production persistence can be added behind the same contract without changing the domain.
+
+InMemoryCaseRepository is NOT production durable storage: data is process-local and lost on restart.
 """
 from __future__ import annotations
 

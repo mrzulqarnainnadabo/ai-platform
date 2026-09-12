@@ -63,11 +63,6 @@ class CaseService:
         return case
 
     def _aggregate(self, case: Case) -> CaseAggregate:
-        """Build an aggregate from an already-authorized case.
-
-        This private helper prevents write endpoints from accidentally requiring
-        read capability merely to serialize the object they just created.
-        """
         return CaseAggregate(
             case=case,
             assertions=self.repository.list_assertions(case.id),
@@ -100,22 +95,12 @@ class CaseService:
                         title=clean_title, summary=summary)
         initial = new_assertion(case_id=case.id, text=summary, kind=AssertionKind.UNKNOWN,
                                 created_by="user", requires_evidence=True)
-        audit = self._audit(
-            auth,
-            "case.created",
-            "case",
-            case.id,
-            {"status": case.status.value, "initial_assertion": initial.id},
-        )
+        audit = self._audit(auth, "case.created", "case", case.id,
+                            {"status": case.status.value, "initial_assertion": initial.id})
         self.repository.create_case_bundle(case, initial, audit)
         return case
 
     def create_aggregate(self, auth: AuthorizationContext, summary: str, title: Optional[str] = None) -> CaseAggregate:
-        """Create and return the new case without requiring case.read.
-
-        The caller has already passed the create authorization gate; the returned
-        aggregate is therefore limited to the case just created by that caller.
-        """
         case = self.create(auth, summary, title)
         return self._aggregate(case)
 
@@ -172,21 +157,22 @@ class CaseService:
             provider_name,
         )
         parsed = parse_triage_output(result.response.message.get_text_content())
-        for item in parsed.assertions:
-            assertion = new_assertion(case_id=case.id, text=item["text"], kind=item["kind"],
-                                      created_by="model", requires_evidence=True)
-            self.repository.save_assertion(assertion)
+        assertions = [
+            new_assertion(case_id=case.id, text=item["text"], kind=item["kind"],
+                          created_by="model", requires_evidence=True)
+            for item in parsed.assertions
+        ]
         case.status = CaseStatus.IN_PROGRESS
         case.updated_at = datetime.now(timezone.utc)
         case.missing_evidence_questions = parsed.missing_evidence_questions
-        self.repository.save_case(case)
-        self.repository.save_audit(self._audit(
+        audit = self._audit(
             auth,
             "case.triaged",
             "case",
             case.id,
-            {"assertion_count": len(parsed.assertions), "missing_evidence_count": len(parsed.missing_evidence_questions)},
-        ))
+            {"assertion_count": len(assertions), "missing_evidence_count": len(parsed.missing_evidence_questions)},
+        )
+        self.repository.save_triage_bundle(case, assertions, audit)
         return self._aggregate(case)
 
 
@@ -212,6 +198,7 @@ class EvidenceService:
         clean_uri = source_uri.strip() if source_uri is not None else None
         if source_type in {EvidenceSourceType.URL, EvidenceSourceType.DOCUMENT_REF} and not clean_uri:
             raise InvalidCaseInput("source_uri is required for URL and document_ref evidence")
+        assertion = None
         if assertion_id:
             assertion = next((x for x in self.repository.list_assertions(case_id) if x.id == assertion_id), None)
             if assertion is None:
@@ -219,10 +206,8 @@ class EvidenceService:
         evidence = new_evidence(case_id=case_id, assertion_id=assertion_id, body=body,
                                 source_type=source_type, source_uri=clean_uri, note=note,
                                 subject=auth.identity.subject)
-        self.repository.save_evidence(evidence)
-        if assertion_id:
+        if assertion is not None:
             assertion.evidence_ids.append(evidence.id)
-            self.repository.save_assertion(assertion)
         canonical = {
             "case_id": case_id,
             "evidence_id": evidence.id,
@@ -231,7 +216,7 @@ class EvidenceService:
             "has_uri": bool(clean_uri),
         }
         canonical_text = json.dumps(canonical, sort_keys=True, separators=(",", ":"))
-        self.repository.save_audit(AuditEvent(
+        audit = AuditEvent(
             id=uuid4().hex,
             tenant_id=auth.identity.tenant_id,
             actor_subject=auth.identity.subject,
@@ -245,5 +230,6 @@ class EvidenceService:
                 "source_type": source_type.value,
                 "has_uri": bool(clean_uri),
             },
-        ))
+        )
+        self.repository.attach_evidence_bundle(evidence, assertion, audit)
         return evidence

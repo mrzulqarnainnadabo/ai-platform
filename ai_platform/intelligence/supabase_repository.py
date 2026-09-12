@@ -12,11 +12,11 @@ from typing import Any, Mapping
 from .models import (
     Assertion,
     AssertionKind,
-    AuditEvent,
     Case,
     CaseStatus,
     Evidence,
     EvidenceSourceType,
+    AuditEvent,
 )
 
 
@@ -40,14 +40,9 @@ def _as_list(value: Any) -> list:
 
 def _case_from_row(r: Mapping[str, Any]) -> Case:
     return Case(
-        id=str(r["id"]),
-        tenant_id=str(r["tenant_id"]),
-        created_by_subject=str(r["created_by_subject"]),
-        title=str(r["title"]),
-        summary=str(r["summary"]),
-        status=CaseStatus(str(r["status"])),
-        created_at=_parse_dt(r["created_at"]),
-        updated_at=_parse_dt(r["updated_at"]),
+        id=str(r["id"]), tenant_id=str(r["tenant_id"]), created_by_subject=str(r["created_by_subject"]),
+        title=str(r["title"]), summary=str(r["summary"]), status=CaseStatus(str(r["status"])),
+        created_at=_parse_dt(r["created_at"]), updated_at=_parse_dt(r["updated_at"]),
         missing_evidence_questions=[str(x) for x in _as_list(r.get("missing_evidence_questions"))],
     )
 
@@ -59,220 +54,141 @@ class SupabaseCaseRepository:
         self._client = client
 
     def _tenant_for_case(self, case_id: str) -> str:
-        row = (
-            self._client.table("ai_platform_cases")
-            .select("tenant_id")
-            .eq("id", case_id)
-            .limit(1)
-            .execute()
-        )
+        row = self._client.table("ai_platform_cases").select("tenant_id").eq("id", case_id).limit(1).execute()
         data = getattr(row, "data", None) or []
         if not data:
             raise LookupError(f"case not found: {case_id}")
         return str(data[0]["tenant_id"])
 
     def save_case(self, case: Case) -> None:
-        payload = {
-            "id": case.id,
-            "tenant_id": case.tenant_id,
-            "created_by_subject": case.created_by_subject,
-            "title": case.title,
-            "summary": case.summary,
-            "status": case.status.value,
-            "missing_evidence_questions": case.missing_evidence_questions,
-            "created_at": case.created_at.isoformat(),
-            "updated_at": case.updated_at.isoformat(),
-        }
+        payload = {"id": case.id, "tenant_id": case.tenant_id, "created_by_subject": case.created_by_subject,
+                   "title": case.title, "summary": case.summary, "status": case.status.value,
+                   "missing_evidence_questions": case.missing_evidence_questions,
+                   "created_at": case.created_at.isoformat(), "updated_at": case.updated_at.isoformat()}
         self._client.table("ai_platform_cases").upsert(payload).execute()
 
     def get_case(self, case_id: str) -> Case | None:
-        row = (
-            self._client.table("ai_platform_cases")
-            .select("*")
-            .eq("id", case_id)
-            .limit(1)
-            .execute()
-        )
+        row = self._client.table("ai_platform_cases").select("*").eq("id", case_id).limit(1).execute()
         data = getattr(row, "data", None) or []
-        if not data:
-            return None
-        return _case_from_row(data[0])
+        return _case_from_row(data[0]) if data else None
 
     def list_cases(self, tenant_id: str) -> list[Case]:
-        row = (
-            self._client.table("ai_platform_cases")
-            .select("*")
-            .eq("tenant_id", tenant_id)
-            .order("updated_at", desc=True)
-            .execute()
-        )
-        data = getattr(row, "data", None) or []
-        return [_case_from_row(r) for r in data]
+        row = self._client.table("ai_platform_cases").select("*").eq("tenant_id", tenant_id).order("updated_at", desc=True).execute()
+        return [_case_from_row(r) for r in (getattr(row, "data", None) or [])]
 
     def save_assertion(self, assertion: Assertion) -> None:
         tenant_id = self._tenant_for_case(assertion.case_id)
-        payload = {
-            "id": assertion.id,
-            "case_id": assertion.case_id,
-            "tenant_id": tenant_id,
-            "text": assertion.text,
-            "kind": assertion.kind.value,
-            "created_by": assertion.created_by,
-            "requires_evidence": assertion.requires_evidence,
-            "evidence_ids": assertion.evidence_ids,
-            "created_at": assertion.created_at.isoformat(),
-        }
+        payload = {"id": assertion.id, "case_id": assertion.case_id, "tenant_id": tenant_id,
+                   "text": assertion.text, "kind": assertion.kind.value, "created_by": assertion.created_by,
+                   "requires_evidence": assertion.requires_evidence, "evidence_ids": assertion.evidence_ids,
+                   "created_at": assertion.created_at.isoformat()}
         self._client.table("ai_platform_assertions").upsert(payload).execute()
 
     def list_assertions(self, case_id: str) -> list[Assertion]:
-        row = (
-            self._client.table("ai_platform_assertions")
-            .select("*")
-            .eq("case_id", case_id)
-            .execute()
-        )
-        data = getattr(row, "data", None) or []
+        row = self._client.table("ai_platform_assertions").select("*").eq("case_id", case_id).execute()
         out: list[Assertion] = []
-        for r in data:
-            out.append(
-                Assertion(
-                    id=str(r["id"]),
-                    case_id=str(r["case_id"]),
-                    text=str(r["text"]),
-                    kind=AssertionKind(str(r["kind"])),
-                    created_by=str(r["created_by"]),
-                    requires_evidence=bool(r["requires_evidence"]),
-                    created_at=_parse_dt(r["created_at"]),
-                    evidence_ids=[str(x) for x in _as_list(r.get("evidence_ids"))],
-                )
-            )
+        for r in (getattr(row, "data", None) or []):
+            out.append(Assertion(id=str(r["id"]), case_id=str(r["case_id"]), text=str(r["text"]),
+                                 kind=AssertionKind(str(r["kind"])), created_by=str(r["created_by"]),
+                                 requires_evidence=bool(r["requires_evidence"]), created_at=_parse_dt(r["created_at"]),
+                                 evidence_ids=[str(x) for x in _as_list(r.get("evidence_ids"))]))
         return out
 
     def save_evidence(self, evidence: Evidence) -> None:
         tenant_id = self._tenant_for_case(evidence.case_id)
-        payload = {
-            "id": evidence.id,
-            "case_id": evidence.case_id,
-            "tenant_id": tenant_id,
-            "assertion_id": evidence.assertion_id,
-            "body": evidence.body,
-            "source_type": evidence.source_type.value,
-            "source_uri": evidence.source_uri,
-            "note": evidence.note,
-            "created_by_subject": evidence.created_by_subject,
-            "created_at": evidence.created_at.isoformat(),
-        }
+        payload = {"id": evidence.id, "case_id": evidence.case_id, "tenant_id": tenant_id,
+                   "assertion_id": evidence.assertion_id, "body": evidence.body,
+                   "source_type": evidence.source_type.value, "source_uri": evidence.source_uri,
+                   "note": evidence.note, "created_by_subject": evidence.created_by_subject,
+                   "created_at": evidence.created_at.isoformat()}
         self._client.table("ai_platform_evidence").insert(payload).execute()
 
     def list_evidence(self, case_id: str) -> list[Evidence]:
-        row = (
-            self._client.table("ai_platform_evidence")
-            .select("*")
-            .eq("case_id", case_id)
-            .execute()
-        )
-        data = getattr(row, "data", None) or []
+        row = self._client.table("ai_platform_evidence").select("*").eq("case_id", case_id).execute()
         out: list[Evidence] = []
-        for r in data:
-            out.append(
-                Evidence(
-                    id=str(r["id"]),
-                    case_id=str(r["case_id"]),
-                    assertion_id=str(r["assertion_id"]) if r.get("assertion_id") else None,
-                    body=str(r["body"]),
-                    source_type=EvidenceSourceType(str(r["source_type"])),
-                    source_uri=str(r["source_uri"]) if r.get("source_uri") else None,
-                    note=str(r["note"]) if r.get("note") else None,
-                    created_by_subject=str(r["created_by_subject"]),
-                    created_at=_parse_dt(r["created_at"]),
-                )
-            )
+        for r in (getattr(row, "data", None) or []):
+            out.append(Evidence(id=str(r["id"]), case_id=str(r["case_id"]),
+                                assertion_id=str(r["assertion_id"]) if r.get("assertion_id") else None,
+                                body=str(r["body"]), source_type=EvidenceSourceType(str(r["source_type"])),
+                                source_uri=str(r["source_uri"]) if r.get("source_uri") else None,
+                                note=str(r["note"]) if r.get("note") else None,
+                                created_by_subject=str(r["created_by_subject"]), created_at=_parse_dt(r["created_at"])))
         return out
 
     def save_audit(self, event: AuditEvent) -> None:
-        payload = {
-            "id": event.id,
-            "tenant_id": event.tenant_id,
-            "actor_subject": event.actor_subject,
-            "action": event.action,
-            "object_type": event.object_type,
-            "object_id": event.object_id,
-            "payload_digest": event.payload_digest,
-            "metadata": dict(event.metadata),
-            "created_at": event.created_at.isoformat(),
-        }
+        payload = {"id": event.id, "tenant_id": event.tenant_id, "actor_subject": event.actor_subject,
+                   "action": event.action, "object_type": event.object_type, "object_id": event.object_id,
+                   "payload_digest": event.payload_digest, "metadata": dict(event.metadata),
+                   "created_at": event.created_at.isoformat()}
         self._client.table("ai_platform_audit_events").insert(payload).execute()
 
     def create_case_bundle(self, case: Case, assertion: Assertion, audit: AuditEvent) -> None:
-        """Persist the case, initial assertion, and audit event in one DB transaction."""
         if assertion.case_id != case.id or audit.object_id != case.id:
             raise ValueError("case bundle references do not match case")
-        if assertion.case_id != case.id or audit.tenant_id != case.tenant_id:
+        if audit.tenant_id != case.tenant_id:
             raise ValueError("case bundle tenant references do not match case")
-        case_payload = {
-            "id": case.id,
-            "tenant_id": case.tenant_id,
-            "created_by_subject": case.created_by_subject,
-            "title": case.title,
-            "summary": case.summary,
-            "status": case.status.value,
-            "missing_evidence_questions": case.missing_evidence_questions,
-            "created_at": case.created_at.isoformat(),
-            "updated_at": case.updated_at.isoformat(),
-        }
-        assertion_payload = {
-            "id": assertion.id,
-            "case_id": assertion.case_id,
-            "tenant_id": case.tenant_id,
-            "text": assertion.text,
-            "kind": assertion.kind.value,
-            "created_by": assertion.created_by,
-            "requires_evidence": assertion.requires_evidence,
-            "evidence_ids": assertion.evidence_ids,
-            "created_at": assertion.created_at.isoformat(),
-        }
-        audit_payload = {
-            "id": audit.id,
-            "tenant_id": audit.tenant_id,
-            "actor_subject": audit.actor_subject,
-            "action": audit.action,
-            "object_type": audit.object_type,
-            "object_id": audit.object_id,
-            "payload_digest": audit.payload_digest,
-            "metadata": dict(audit.metadata),
-            "created_at": audit.created_at.isoformat(),
-        }
-        self._client.rpc(
-            "create_case_bundle",
-            {"p_case": case_payload, "p_assertion": assertion_payload, "p_audit": audit_payload},
-        ).execute()
+        case_payload = {"id": case.id, "tenant_id": case.tenant_id, "created_by_subject": case.created_by_subject,
+                        "title": case.title, "summary": case.summary, "status": case.status.value,
+                        "missing_evidence_questions": case.missing_evidence_questions,
+                        "created_at": case.created_at.isoformat(), "updated_at": case.updated_at.isoformat()}
+        assertion_payload = {"id": assertion.id, "case_id": assertion.case_id, "tenant_id": case.tenant_id,
+                             "text": assertion.text, "kind": assertion.kind.value, "created_by": assertion.created_by,
+                             "requires_evidence": assertion.requires_evidence, "evidence_ids": assertion.evidence_ids,
+                             "created_at": assertion.created_at.isoformat()}
+        audit_payload = {"id": audit.id, "tenant_id": audit.tenant_id, "actor_subject": audit.actor_subject,
+                         "action": audit.action, "object_type": audit.object_type, "object_id": audit.object_id,
+                         "payload_digest": audit.payload_digest, "metadata": dict(audit.metadata),
+                         "created_at": audit.created_at.isoformat()}
+        self._client.rpc("create_case_bundle", {"p_case": case_payload, "p_assertion": assertion_payload,
+                                                 "p_audit": audit_payload}).execute()
+
+    def attach_evidence_bundle(self, evidence: Evidence, assertion: Assertion | None, audit: AuditEvent) -> None:
+        if assertion is not None and (assertion.id != evidence.assertion_id or assertion.case_id != evidence.case_id):
+            raise ValueError("evidence assertion reference does not match case")
+        if audit.object_id != evidence.case_id:
+            raise ValueError("evidence audit object does not match case")
+        evidence_payload = {"id": evidence.id, "case_id": evidence.case_id,
+                            "assertion_id": evidence.assertion_id, "body": evidence.body,
+                            "source_type": evidence.source_type.value, "source_uri": evidence.source_uri,
+                            "note": evidence.note, "created_by_subject": evidence.created_by_subject,
+                            "created_at": evidence.created_at.isoformat()}
+        audit_payload = {"id": audit.id, "tenant_id": audit.tenant_id, "actor_subject": audit.actor_subject,
+                         "action": audit.action, "object_type": audit.object_type, "object_id": audit.object_id,
+                         "payload_digest": audit.payload_digest, "metadata": dict(audit.metadata),
+                         "created_at": audit.created_at.isoformat()}
+        self._client.rpc("attach_evidence_bundle", {"p_evidence": evidence_payload,
+                                                      "p_audit": audit_payload,
+                                                      "p_assertion_id": assertion.id if assertion else None}).execute()
+
+    def save_triage_bundle(self, case: Case, assertions: list[Assertion], audit: AuditEvent) -> None:
+        if any(x.case_id != case.id for x in assertions) or audit.object_id != case.id or audit.tenant_id != case.tenant_id:
+            raise ValueError("triage bundle references do not match case")
+        case_payload = {"id": case.id, "tenant_id": case.tenant_id, "created_by_subject": case.created_by_subject,
+                        "title": case.title, "summary": case.summary, "status": case.status.value,
+                        "missing_evidence_questions": case.missing_evidence_questions,
+                        "created_at": case.created_at.isoformat(), "updated_at": case.updated_at.isoformat()}
+        assertions_payload = [{"id": x.id, "case_id": x.case_id, "tenant_id": case.tenant_id,
+                               "text": x.text, "kind": x.kind.value, "created_by": x.created_by,
+                               "requires_evidence": x.requires_evidence, "evidence_ids": x.evidence_ids,
+                               "created_at": x.created_at.isoformat()} for x in assertions]
+        audit_payload = {"id": audit.id, "tenant_id": audit.tenant_id, "actor_subject": audit.actor_subject,
+                         "action": audit.action, "object_type": audit.object_type, "object_id": audit.object_id,
+                         "payload_digest": audit.payload_digest, "metadata": dict(audit.metadata),
+                         "created_at": audit.created_at.isoformat()}
+        self._client.rpc("save_triage_bundle", {"p_case": case_payload, "p_assertions": assertions_payload,
+                                                  "p_audit": audit_payload}).execute()
 
     def list_audit(self, object_id: str, tenant_id: str | None = None) -> list[AuditEvent]:
-        query = (
-            self._client.table("ai_platform_audit_events")
-            .select("*")
-            .eq("object_id", object_id)
-        )
+        query = self._client.table("ai_platform_audit_events").select("*").eq("object_id", object_id)
         if tenant_id is not None:
             query = query.eq("tenant_id", tenant_id)
         row = query.execute()
-        data = getattr(row, "data", None) or []
         out: list[AuditEvent] = []
-        for r in data:
+        for r in (getattr(row, "data", None) or []):
             meta = r.get("metadata") or {}
-            if isinstance(meta, str):
-                meta = json.loads(meta)
-            out.append(
-                AuditEvent(
-                    id=str(r["id"]),
-                    tenant_id=str(r["tenant_id"]),
-                    actor_subject=str(r["actor_subject"]),
-                    action=str(r["action"]),
-                    object_type=str(r["object_type"]),
-                    object_id=str(r["object_id"]),
-                    payload_digest=str(r["payload_digest"]),
-                    metadata=dict(meta) if isinstance(meta, Mapping) else {},
-                    created_at=_parse_dt(r["created_at"]),
-                )
-            )
+            if isinstance(meta, str): meta = json.loads(meta)
+            out.append(AuditEvent(id=str(r["id"]), tenant_id=str(r["tenant_id"]), actor_subject=str(r["actor_subject"]),
+                                  action=str(r["action"]), object_type=str(r["object_type"]), object_id=str(r["object_id"]),
+                                  payload_digest=str(r["payload_digest"]), metadata=dict(meta) if isinstance(meta, Mapping) else {},
+                                  created_at=_parse_dt(r["created_at"])))
         return out

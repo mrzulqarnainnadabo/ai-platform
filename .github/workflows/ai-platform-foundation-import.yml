@@ -57,7 +57,6 @@ jobs:
           rsync -a --delete \
             --exclude='.git/' \
             --exclude='.github/' \
-            --exclude='.github/workflows/' \
             --exclude='README.md' \
             --exclude='UPSTREAM_FOUNDATION.md' \
             --exclude='PLATFORM_ARCHITECTURE.md' \
@@ -66,9 +65,6 @@ jobs:
             --exclude='AGENTS.md' \
             --exclude='JULES_PHASE_1_IMPORT_AUDIT.md' \
             --exclude='docs/' \
-            --exclude='docs/ROADMAP.md' \
-            --exclude='docs/audit/' \
-            --exclude='docs/FRONTDOOR.md' \
             --exclude='api/' \
             --exclude='ai_platform/' \
             --exclude='tests/' \
@@ -84,7 +80,7 @@ jobs:
 
       - name: Record upstream provenance
         run: |
-          cat > UPSTREAM_FOUNDATION.md <<'EOF'
+          cat > UPSTREAM_FOUNDATION.md <<'PROV'
           # Upstream Foundation
 
           This repository incorporates material from:
@@ -95,7 +91,7 @@ jobs:
           The imported source is a foundation for the AI Platform and is not represented as original authorship by this project. Preserve applicable copyright, license, NOTICE, and attribution requirements when modifying or redistributing upstream material.
 
           Platform-specific architecture, code, documentation, and modifications added by `mrzulqarnainnadabo/ai-platform` are maintained separately from the upstream project's authorship.
-          EOF
+          PROV
 
       - name: Commit sync branch
         run: |
@@ -106,3 +102,14 @@ jobs:
           fi
           git commit -m "chore: sync awesome-llm-apps foundation"
           git push -u origin "$SYNC_BRANCH" --force
+
+      - name: Open or update review PR
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          gh pr create \
+            --base main \
+            --head "$SYNC_BRANCH" \
+            --title "chore: sync upstream AI foundation" \
+            --body "Automated upstream synchronization from Shubhamsaboo/awesome-llm-apps. Review licensing, dependency, security, and compatibility impact before merging." \
+            2>/dev/null || true

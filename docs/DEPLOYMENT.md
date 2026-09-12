@@ -30,7 +30,7 @@ Required production environment variables (set in Vercel project settings, never
   - `AI_PLATFORM_PERMISSIONS_CLAIM`
 
 OpenAI and xAI share the same OpenAI-compatible adapter and the same authorization path.
-There is no separate provider auth or policy bypass.
+There is no separate provider auth or policy bypass. When both provider keys are configured, the endpoint determines the preferred credential: `XAI_API_KEY` is preferred for `https://api.x.ai/v1`, and `OPENAI_API_KEY` is preferred for `https://api.openai.com/v1`.
 
 ## Configuration
 

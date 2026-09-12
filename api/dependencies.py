@@ -45,6 +45,24 @@ def _is_loopback_base_url(value: str) -> bool:
     return parsed.scheme in {"http", "https"} and parsed.hostname in {"localhost", "127.0.0.1", "::1"}
 
 
+def _resolve_cloud_provider_credentials() -> tuple[str, str]:
+    """Resolve a cloud-compatible endpoint and matching credential.
+
+    When both OpenAI and xAI keys exist, the endpoint determines which credential
+    is preferred. This prevents an xAI deployment from accidentally sending an
+    OpenAI key to the xAI endpoint (or vice versa).
+    """
+    base_url = (os.getenv("OPENAI_BASE_URL") or "https://api.openai.com/v1").strip()
+    normalized_base_url = base_url.rstrip("/").lower()
+
+    if normalized_base_url == "https://api.x.ai/v1":
+        api_key = (os.getenv("XAI_API_KEY") or os.getenv("OPENAI_API_KEY") or "").strip()
+    else:
+        api_key = (os.getenv("OPENAI_API_KEY") or os.getenv("XAI_API_KEY") or "").strip()
+
+    return base_url, api_key
+
+
 @lru_cache(maxsize=1)
 def get_auth_provider() -> SupabaseAuthContextProvider:
     return SupabaseAuthContextProvider.from_environment()
@@ -80,8 +98,7 @@ def get_authorized_runtime() -> AuthorizedModelRuntime:
             # Ollama ignores the key but some clients send a placeholder.
             api_key = (os.getenv("OLLAMA_API_KEY") or os.getenv("OPENAI_API_KEY") or "ollama").strip()
         else:
-            base_url = (os.getenv("OPENAI_BASE_URL") or "https://api.openai.com/v1").strip()
-            api_key = (os.getenv("OPENAI_API_KEY") or os.getenv("XAI_API_KEY") or "").strip()
+            base_url, api_key = _resolve_cloud_provider_credentials()
 
         is_local = _is_loopback_base_url(base_url)
         if not api_key and not is_local:

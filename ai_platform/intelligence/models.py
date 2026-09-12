@@ -49,6 +49,7 @@ class Case:
     status: CaseStatus = CaseStatus.OPEN
     created_at: datetime = field(default_factory=_now)
     updated_at: datetime = field(default_factory=_now)
+    missing_evidence_questions: list[str] = field(default_factory=list)
 
 
 @dataclass

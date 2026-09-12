@@ -41,6 +41,8 @@ class FakeTable:
         self._payload: dict | None = None
         self._op = "select"
         self._limit: int | None = None
+        self._order_key: str | None = None
+        self._order_desc = False
 
     def select(self, *_args: str) -> "FakeTable":
         self._op = "select"
@@ -52,6 +54,11 @@ class FakeTable:
 
     def limit(self, n: int) -> "FakeTable":
         self._limit = n
+        return self
+
+    def order(self, key: str, *, desc: bool = False, **_kwargs: Any) -> "FakeTable":
+        self._order_key = key
+        self._order_desc = desc
         return self
 
     def upsert(self, payload: dict) -> "FakeTable":
@@ -75,6 +82,8 @@ class FakeTable:
         data = rows
         for k, v in self._filters:
             data = [r for r in data if r.get(k) == v]
+        if self._order_key:
+            data = sorted(data, key=lambda r: r.get(self._order_key) or "", reverse=self._order_desc)
         if self._limit is not None:
             data = data[: self._limit]
         return _Result(data=[dict(r) for r in data])
@@ -128,6 +137,17 @@ def test_supabase_repo_roundtrip_case_assertion_evidence_audit():
     assert len(repo.list_audit(case.id)) == 1
 
 
+def test_supabase_repo_lists_only_requested_tenant():
+    client = FakeClient()
+    repo = SupabaseCaseRepository(client)
+    first = new_case(tenant_id="t1", subject="u1", title="First", summary="S1")
+    second = new_case(tenant_id="t2", subject="u2", title="Second", summary="S2")
+    repo.save_case(first)
+    repo.save_case(second)
+    cases = repo.list_cases("t1")
+    assert [x.id for x in cases] == [first.id]
+
+
 def test_store_defaults_to_memory(monkeypatch):
     reset_case_repository_cache()
     monkeypatch.delenv("INTEL_CASE_STORE", raising=False)
@@ -161,3 +181,20 @@ def test_service_still_isolates_tenants_with_memory():
     case = service.create(auth_a, "hello")
     with pytest.raises(PolicyDeniedError):
         service.get(auth_b, case.id)
+
+
+def test_service_case_list_is_tenant_scoped():
+    repo = InMemoryCaseRepository()
+    service = CaseService(repo)
+    auth_a = AuthorizationContext(
+        Identity("u1", "tenant-a"),
+        Permissions(frozenset({Capability.CASE_CREATE, Capability.CASE_READ})),
+    )
+    auth_b = AuthorizationContext(
+        Identity("u2", "tenant-b"),
+        Permissions(frozenset({Capability.CASE_CREATE, Capability.CASE_READ})),
+    )
+    case_a = service.create(auth_a, "a")
+    case_b = service.create(auth_b, "b")
+    assert [x.id for x in service.list(auth_a)] == [case_a.id]
+    assert [x.id for x in service.list(auth_b)] == [case_b.id]

@@ -89,6 +89,15 @@ class AuditEvent:
     created_at: datetime = field(default_factory=_now)
 
 
+@dataclass
+class CaseAggregate:
+    case: Case
+    assertions: list[Assertion]
+    evidence: list[Evidence]
+    audit_events: list[AuditEvent]
+    missing_evidence_questions: list[str] = field(default_factory=list)
+
+
 def new_case(*, tenant_id: str, subject: str, title: str, summary: str) -> Case:
     return Case(id=_id(), tenant_id=tenant_id, created_by_subject=subject, title=title, summary=summary)
 
@@ -99,6 +108,5 @@ def new_assertion(*, case_id: str, text: str, kind: AssertionKind, created_by: s
 
 def new_evidence(*, case_id: str, assertion_id: Optional[str], body: str, source_type: EvidenceSourceType,
                  source_uri: Optional[str], note: Optional[str], subject: str) -> Evidence:
-    return Evidence(id=_id(), case_id=case_id, assertion_id=assertion_id, body=body,
-                    source_type=source_type, source_uri=source_uri, note=note,
-                    created_by_subject=subject)
+    return Evidence(id=_id(), case_id=case_id, assertion_id=assertion_id, body=body, source_type=source_type,
+                    source_uri=source_uri, note=note, created_by_subject=subject)

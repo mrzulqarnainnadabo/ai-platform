@@ -58,12 +58,13 @@ Browser app: `api/frontdoor.py` → `/app`.
 
 | Method | Path | Capability |
 |--------|------|------------|
-| POST | `/api/v1/models/generate` | `model.generate` |
-| POST | `/api/v1/models/stream` | `model.stream` (SSE) |
 | POST | `/api/v1/cases` | `case.create` |
+| GET | `/api/v1/cases` | `case.read` |
 | GET | `/api/v1/cases/{id}` | `case.read` |
 | POST | `/api/v1/cases/{id}/triage` | `case.triage` + `model.generate` |
 | POST | `/api/v1/cases/{id}/evidence` | `evidence.attach` |
+| POST | `/api/v1/models/generate` | `model.generate` |
+| POST | `/api/v1/models/stream` | `model.stream` (SSE) |
 
 ### Environment (server only)
 
@@ -79,10 +80,19 @@ See `.env.example` for a full template. Never commit `.env`.
 | `OPENAI_BASE_URL` | No | No | OpenAI default; set xAI-compatible base URL for Grok |
 | `AI_PLATFORM_PROVIDER` | No | No | `openai-compatible` (default) or `ollama` |
 | `AI_PLATFORM_TRIAGE_MODEL` | No | No | Server-selected case triage model |
+| `AI_PLATFORM_DEMO_MODE` | No | No | Development-only mock Case Workspace gate; rejected in production |
 
 When both cloud keys are configured, the endpoint selects the matching credential: xAI (`https://api.x.ai/v1`) prefers `XAI_API_KEY`; OpenAI (`https://api.openai.com/v1`) prefers `OPENAI_API_KEY`. This prevents a configured second provider key from being sent to the wrong upstream.
 
 For Vercel Production, use `INTEL_CASE_STORE=supabase`. Ollama is **local only** and loopback-bound (`127.0.0.1:11434`); a Vercel deployment cannot reach Ollama running on your laptop. Use a cloud provider for Vercel Production, or host Ollama where the application can safely reach it.
+
+### Development Case Workspace Demo
+
+For local development or a non-production Vercel preview, set the **server-side** variable `AI_PLATFORM_DEMO_MODE=true`. Then open `/app/cases/demo`.
+
+The demo uses fixed mock identity/data and reuses the real Case Workspace UI, including case creation, triage, evidence attachment and audit presentation. It does not call Supabase or a model provider and does not expose server credentials. The server rejects the demo whenever `VERCEL_ENV=production` or `ENVIRONMENT=production`.
+
+The normal `/app/cases` route remains authenticated and unchanged.
 
 ### Expected HTTP status codes
 

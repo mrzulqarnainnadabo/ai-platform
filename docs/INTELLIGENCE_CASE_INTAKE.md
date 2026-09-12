@@ -34,17 +34,19 @@ All endpoints require an authenticated Supabase JWT with trusted capability clai
 }
 ```
 
+Case creation requires `case.create`. The creation response does not require a separate `case.read` capability.
+
 ### Read a case
 
 `GET /api/v1/cases/{id}`
 
-Returns the case, assertions, evidence, missing-evidence questions, and audit events.
+Returns the case, assertions, evidence, missing-evidence questions, and audit events. Requires `case.read` and tenant ownership.
 
 ### Triage a case
 
 `POST /api/v1/cases/{id}/triage`
 
-The server invokes `AuthorizedModelRuntime` only after `case.triage` is authorized. The model receives a strict JSON schema and untrusted case text; deterministic validation rejects malformed output and any model-suggested `fact` assertion without evidence.
+The server invokes `AuthorizedModelRuntime` only after `case.triage` and `model.generate` are authorized. The model receives a strict JSON schema and untrusted case text; deterministic validation rejects malformed output and any model-suggested `fact` assertion without evidence.
 
 The triage model is selected server-side with `AI_PLATFORM_TRIAGE_MODEL` and is never supplied by the client.
 
@@ -62,7 +64,13 @@ The triage model is selected server-side with `AI_PLATFORM_TRIAGE_MODEL` and is 
 }
 ```
 
-For `url` and `document_ref`, `source_uri` is required.
+For `url` and `document_ref`, a non-blank `source_uri` is required.
+
+## Evidence ingestion boundary
+
+The first-party `EvidenceIngestionPort` defines the future adapter boundary for text, URLs, PDF/DOCX, images, audio, and video. The vertical slice intentionally ships only a safe text passthrough adapter.
+
+Future engines such as document parsing, OCR, speech transcription, media extraction, and local model services must sit behind adapters and must not become domain dependencies. They also must not receive provider credentials from clients.
 
 ## Security invariants
 
@@ -73,13 +81,17 @@ For `url` and `document_ref`, `source_uri` is required.
 5. A denied triage request is rejected before provider configuration/model execution.
 6. Model calls happen only through `AuthorizedModelRuntime`.
 7. Model output cannot establish a `fact` without linked evidence.
-8. Evidence is immutable after creation in the v1 service contract.
-9. Audit events contain digests/metadata, never provider secrets.
-10. `third_party/` remains research-only and is not a runtime dependency.
+8. Evidence is append-only at the database layer and cannot be updated or deleted by the integrity trigger.
+9. Audit events are append-only at the database layer and contain digests/metadata, never provider secrets.
+10. Child records carry tenant IDs that are constrained against their parent case/assertion tenant IDs.
+11. On Vercel, the case store defaults to durable Supabase and fails closed when required server credentials are missing; local development can use the explicit/default in-memory store.
+12. `third_party/` remains research-only and is not a runtime dependency.
 
-## Persistence note
+## Persistence
 
-This first vertical slice uses a repository interface with an in-memory implementation so the domain and authorization contracts can be tested without introducing a new database dependency. It is intentionally a replaceable persistence boundary; durable Supabase persistence is a subsequent phase.
+The domain remains behind `CaseRepository`. Local development and unit tests use `InMemoryCaseRepository`. Vercel defaults to `SupabaseCaseRepository` unless `INTEL_CASE_STORE` is explicitly configured. The Supabase implementation uses server-only credentials and migration `0003_intelligence_case_tables`, with integrity hardening in `0004_intelligence_integrity_guards`.
+
+The Supabase service-role credential must never be exposed to browser code.
 
 ## Explicit non-goals
 
@@ -87,8 +99,8 @@ This first vertical slice uses a repository interface with an in-memory implemen
 - official-contact discovery
 - multi-agent research
 - commitments, approvals, or outcome resolution
-- file upload/OCR pipeline
+- full PDF/OCR/Whisper pipeline
 - Neo4j, Chroma, LangChain, CrewAI, ADK, or other agent frameworks
 - streaming triage
 - `/app` UI redesign
-- deployment or Vercel environment changes
+- deployment or automatic provider configuration changes

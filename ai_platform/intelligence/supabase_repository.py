@@ -93,6 +93,7 @@ class SupabaseCaseRepository:
             .eq("id", case_id)
             .limit(1)
             .execute()
+        )
         data = getattr(row, "data", None) or []
         if not data:
             return None

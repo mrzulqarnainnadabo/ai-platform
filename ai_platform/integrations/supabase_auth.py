@@ -64,6 +64,9 @@ class SupabaseAuthContextProvider:
         if not _audience_is_authenticated(claims.get("aud")):
             raise SupabaseAuthenticationError("Anonymous sessions cannot access the platform")
 
+        if claims.get("is_anonymous") is True:
+            raise SupabaseAuthenticationError("Anonymous sessions cannot access the platform")
+
         tenant_id = _trusted_claim(claims, self._tenant_claim)
         if not isinstance(tenant_id, str) or not tenant_id:
             raise SupabaseAuthenticationError("Access token has no platform tenant")

@@ -12,7 +12,20 @@ from ai_platform.policy.evaluator import SimplePermissionEvaluator
 
 
 class AuthorizedModelRuntime:
-    """Recommended application entry point enforcing deterministic policy before runtime."""
+    """Authorize then execute model work.
+
+    Responsibility boundary:
+    - This class: tenant match + capability policy (fail-closed).
+    - ModelRuntime: timeouts, cancellation, retries, provider dispatch.
+    - Providers: vendor HTTP only.
+
+    Applications should call generate/stream here — never ProviderRegistry or
+    a provider adapter directly — so DENY cannot reach a model endpoint.
+
+    Streaming: policy runs inside stream() before the first provider chunk.
+    HTTP hosts must still surface DENY as HTTP 403 (not a streamed error);
+    the Vercel host primes the async generator for that reason.
+    """
     def __init__(self, runtime: ModelRuntime, evaluator: Optional[SimplePermissionEvaluator] = None) -> None:
         self.runtime = runtime
         self.evaluator = evaluator or SimplePermissionEvaluator()

@@ -4,6 +4,7 @@ import asyncio
 
 import pytest
 
+from api.cases_frontend import cases_page
 from ai_platform.intelligence.models import EvidenceSourceType
 from ai_platform.intelligence.repository import InMemoryCaseRepository
 from ai_platform.intelligence.service import CaseNotFoundError, CaseService, EvidenceService, InvalidCaseInput
@@ -93,3 +94,30 @@ def test_triage_fails_before_model_execution_for_unknown_provider():
     assert stored is not None
     assert stored.status.value == "open"
     assert repository.list_evidence(case.id) == []
+
+
+def test_case_listing_is_tenant_scoped():
+    repository = InMemoryCaseRepository()
+    service = CaseService(repository)
+    create = auth_context(Capability.CASE_CREATE, tenant_id="tenant-a")
+    other_create = auth_context(Capability.CASE_CREATE, tenant_id="tenant-b")
+    read_a = auth_context(Capability.CASE_READ, tenant_id="tenant-a")
+
+    first = service.create(create, "tenant a case")
+    service.create(other_create, "tenant b case")
+
+    listed = service.list(read_a)
+    assert [case.id for case in listed] == [first.id]
+    assert all(case.tenant_id == "tenant-a" for case in listed)
+
+
+def test_cases_page_escapes_browser_configuration(monkeypatch):
+    monkeypatch.setenv("SUPABASE_URL", 'https://example.supabase.co/"><script>alert(1)</script>')
+    monkeypatch.setenv("SUPABASE_PUBLISHABLE_KEY", 'public-key"><script>alert(2)</script>')
+
+    body = cases_page().body.decode("utf-8")
+
+    assert '<script>alert(1)</script>' not in body
+    assert '<script>alert(2)</script>' not in body
+    assert '&lt;script&gt;alert(1)&lt;/script&gt;' in body
+    assert '&lt;script&gt;alert(2)&lt;/script&gt;' in body

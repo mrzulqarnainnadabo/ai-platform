@@ -4,7 +4,6 @@ import asyncio
 
 import pytest
 
-from ai_platform.core.errors import ProviderError
 from ai_platform.intelligence.models import EvidenceSourceType
 from ai_platform.intelligence.repository import InMemoryCaseRepository
 from ai_platform.intelligence.service import CaseNotFoundError, CaseService, EvidenceService, InvalidCaseInput
@@ -71,7 +70,7 @@ def test_evidence_requires_an_assertion_from_the_same_case():
             auth,
             first_case.id,
             body="evidence",
-            source_type=EvidenceSourceType.NOTE,
+            source_type=EvidenceSourceType.USER_TEXT,
             source_uri=None,
             note=None,
             assertion_id=second_assertion.id,
@@ -87,7 +86,7 @@ def test_triage_fails_before_model_execution_for_unknown_provider():
     case = service.create(auth, "triage this case")
     runtime = AuthorizedModelRuntime(ModelRuntime(ProviderRegistry()))
 
-    with pytest.raises(ProviderError):
+    with pytest.raises(ValueError, match="Unknown provider"):
         asyncio.run(service.triage(auth, case.id, runtime, model_name="demo", provider_name="provider-that-is-not-registered"))
 
     stored = repository.get_case(case.id)

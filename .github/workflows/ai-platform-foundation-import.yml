@@ -57,6 +57,8 @@ jobs:
           rsync -a --delete \
             --exclude='.git/' \
             --exclude='.github/' \
+            --exclude='.gitmodules' \
+            --exclude='third_party/' \
             --exclude='README.md' \
             --exclude='UPSTREAM_FOUNDATION.md' \
             --exclude='PLATFORM_ARCHITECTURE.md' \

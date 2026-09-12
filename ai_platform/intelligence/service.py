@@ -62,6 +62,20 @@ class CaseService:
             raise PolicyDeniedError("Case tenant does not match authorization tenant")
         return case
 
+    def _aggregate(self, case: Case) -> CaseAggregate:
+        """Build an aggregate from an already-authorized case.
+
+        This private helper prevents write endpoints from accidentally requiring
+        read capability merely to serialize the object they just created.
+        """
+        return CaseAggregate(
+            case=case,
+            assertions=self.repository.list_assertions(case.id),
+            evidence=self.repository.list_evidence(case.id),
+            audit_events=self.repository.list_audit(case.id),
+            missing_evidence_questions=list(case.missing_evidence_questions),
+        )
+
     def _audit(self, auth: AuthorizationContext, action: str, object_type: str, object_id: str, payload: dict[str, Any]) -> None:
         canonical = json.dumps(payload, sort_keys=True, separators=(",", ":"), default=str)
         digest = hashlib.sha256(canonical.encode("utf-8")).hexdigest()
@@ -91,16 +105,18 @@ class CaseService:
         self._audit(auth, "case.created", "case", case.id, {"status": case.status.value, "initial_assertion": initial.id})
         return case
 
+    def create_aggregate(self, auth: AuthorizationContext, summary: str, title: Optional[str] = None) -> CaseAggregate:
+        """Create and return the new case without requiring case.read.
+
+        The caller has already passed the create authorization gate; the returned
+        aggregate is therefore limited to the case just created by that caller.
+        """
+        case = self.create(auth, summary, title)
+        return self._aggregate(case)
+
     def get(self, auth: AuthorizationContext, case_id: str) -> CaseAggregate:
         self.authorize(auth, Capability.CASE_READ)
-        case = self._get_owned(auth, case_id)
-        return CaseAggregate(
-            case=case,
-            assertions=self.repository.list_assertions(case_id),
-            evidence=self.repository.list_evidence(case_id),
-            audit_events=self.repository.list_audit(case_id),
-            missing_evidence_questions=list(case.missing_evidence_questions),
-        )
+        return self._aggregate(self._get_owned(auth, case_id))
 
     async def triage(self, auth: AuthorizationContext, case_id: str, runtime: AuthorizedModelRuntime,
                      *, model_name: str, provider_name: str = "openai-compatible") -> CaseAggregate:
@@ -155,7 +171,7 @@ class CaseService:
         self.repository.save_case(case)
         self._audit(auth, "case.triaged", "case", case.id,
                     {"assertion_count": len(parsed.assertions), "missing_evidence_count": len(parsed.missing_evidence_questions)})
-        return self.get(auth, case.id)
+        return self._aggregate(case)
 
 
 class EvidenceService:
@@ -177,14 +193,15 @@ class EvidenceService:
         body = body.strip()
         if not body or len(body) > 50000:
             raise InvalidCaseInput("evidence body must contain 1-50000 characters")
-        if source_type in {EvidenceSourceType.URL, EvidenceSourceType.DOCUMENT_REF} and not source_uri:
+        clean_uri = source_uri.strip() if source_uri is not None else None
+        if source_type in {EvidenceSourceType.URL, EvidenceSourceType.DOCUMENT_REF} and not clean_uri:
             raise InvalidCaseInput("source_uri is required for URL and document_ref evidence")
         if assertion_id:
             assertion = next((x for x in self.repository.list_assertions(case_id) if x.id == assertion_id), None)
             if assertion is None:
                 raise InvalidCaseInput("assertion_id does not belong to this case")
         evidence = new_evidence(case_id=case_id, assertion_id=assertion_id, body=body,
-                                source_type=source_type, source_uri=source_uri, note=note,
+                                source_type=source_type, source_uri=clean_uri, note=note,
                                 subject=auth.identity.subject)
         self.repository.save_evidence(evidence)
         if assertion_id:
@@ -197,7 +214,7 @@ class EvidenceService:
             "evidence_id": evidence.id,
             "assertion_id": assertion_id,
             "source_type": source_type.value,
-            "has_uri": bool(source_uri),
+            "has_uri": bool(clean_uri),
         }
         canonical_text = json.dumps(canonical, sort_keys=True, separators=(",", ":"))
         self.repository.save_audit(AuditEvent(
@@ -212,7 +229,7 @@ class EvidenceService:
                 "evidence_id": evidence.id,
                 "assertion_id": assertion_id,
                 "source_type": source_type.value,
-                "has_uri": bool(source_uri),
+                "has_uri": bool(clean_uri),
             },
         ))
         return evidence

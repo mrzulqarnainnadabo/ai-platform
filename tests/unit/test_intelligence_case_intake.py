@@ -42,6 +42,15 @@ def test_create_requires_capability_and_emits_audit():
     assert [event.action for event in aggregate.audit_events] == ["case.created"]
 
 
+def test_create_aggregate_does_not_require_read_capability():
+    repo = InMemoryCaseRepository()
+    service = CaseService(repo)
+    aggregate = service.create_aggregate(auth(Capability.CASE_CREATE), "Create-only case")
+    assert aggregate.case.summary == "Create-only case"
+    assert aggregate.assertions[0].kind == AssertionKind.UNKNOWN
+    assert aggregate.audit_events[0].action == "case.created"
+
+
 def test_cross_tenant_read_is_denied():
     repo = InMemoryCaseRepository()
     service = CaseService(repo)
@@ -161,9 +170,14 @@ def test_evidence_requires_provenance_and_emits_case_scoped_audit():
             auth(Capability.EVIDENCE_ATTACH), case.id, body="source", source_type=EvidenceSourceType.URL,
             source_uri=None, note=None, assertion_id=None,
         )
+    with pytest.raises(ValueError):
+        evidence_service.attach(
+            auth(Capability.EVIDENCE_ATTACH), case.id, body="source", source_type=EvidenceSourceType.URL,
+            source_uri="   ", note=None, assertion_id=None,
+        )
     evidence = evidence_service.attach(
         auth(Capability.EVIDENCE_ATTACH), case.id, body="record excerpt", source_type=EvidenceSourceType.DOCUMENT_REF,
-        source_uri="document:stock-record-1", note="provided by reporter", assertion_id=None,
+        source_uri=" document:stock-record-1 ", note="provided by reporter", assertion_id=None,
     )
     assert evidence.source_uri == "document:stock-record-1"
     aggregate = case_service.get(auth(Capability.CASE_READ), case.id)

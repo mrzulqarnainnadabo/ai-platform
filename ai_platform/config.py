@@ -8,6 +8,7 @@ from __future__ import annotations
 
 import ipaddress
 import os
+import socket
 from dataclasses import dataclass
 from urllib.parse import urlparse
 
@@ -17,7 +18,8 @@ def validate_provider_base_url(url: str) -> str:
 
     Allows HTTPS public hosts and loopback HTTP(S). Rejects non-HTTP schemes,
     non-loopback HTTP, and literal private/link-local/reserved IPs (including
-    cloud metadata addresses). Returns the stripped URL without a trailing slash.
+    cloud metadata addresses and alternative IP representations like integers/octals).
+    Returns the stripped URL without a trailing slash.
     """
     cleaned = (url or "").strip().rstrip("/")
     if not cleaned:
@@ -34,16 +36,21 @@ def validate_provider_base_url(url: str) -> str:
     if parsed.scheme == "http" and not is_loopback_name:
         raise ValueError("base_url must use HTTPS unless targeting localhost")
 
+    # Try resolving hostname as a literal or encoded IP (e.g., standard dotted-quad, integer, octal)
+    ip: ipaddress.IPv4Address | ipaddress.IPv6Address | None = None
     try:
         ip = ipaddress.ip_address(host)
+    except ValueError:
+        try:
+            ip_bytes = socket.inet_aton(host)
+            ip = ipaddress.ip_address(ip_bytes)
+        except (OSError, ValueError):
+            pass
+
+    if ip is not None:
         if ip.is_private or ip.is_link_local or ip.is_reserved or ip.is_multicast:
             if not ip.is_loopback:
                 raise ValueError("base_url must not target private, link-local, or reserved addresses")
-    except ValueError as exc:
-        if "base_url must not" in str(exc):
-            raise
-        # Hostname is not a literal IP — public DNS names are allowed.
-        pass
 
     return cleaned
 

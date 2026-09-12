@@ -20,7 +20,6 @@ from __future__ import annotations
 import os
 from functools import lru_cache
 from typing import Annotated
-from urllib.parse import urlparse
 
 from fastapi import Depends, HTTPException, status
 from fastapi.security import HTTPAuthorizationCredentials, HTTPBearer
@@ -37,12 +36,6 @@ from ai_platform.runtime.model_runtime import ModelRuntime
 from ai_platform.runtime.registry import ProviderRegistry
 
 security = HTTPBearer(auto_error=False)
-
-
-def _is_loopback_base_url(value: str) -> bool:
-    """Return True only for exact loopback hostnames/IPs, not prefix lookalikes."""
-    parsed = urlparse(value)
-    return parsed.scheme == "http" and parsed.hostname in {"localhost", "127.0.0.1", "::1"}
 
 
 @lru_cache(maxsize=1)
@@ -83,7 +76,7 @@ def get_authorized_runtime() -> AuthorizedModelRuntime:
             base_url = (os.getenv("OPENAI_BASE_URL") or "https://api.openai.com/v1").strip()
             api_key = (os.getenv("OPENAI_API_KEY") or os.getenv("XAI_API_KEY") or "").strip()
 
-        is_local = _is_loopback_base_url(base_url)
+        is_local = base_url.startswith(("http://localhost", "http://127.0.0.1", "http://[::1]"))
         if not api_key and not is_local:
             raise RuntimeError("OPENAI_API_KEY or XAI_API_KEY is required for a non-local provider")
         if provider_name == "ollama" and not is_local:

@@ -11,9 +11,12 @@ import sys
 from pathlib import Path as _Path
 
 # Ensure repository root is on sys.path when Vercel invokes api/index.py.
-_ROOT = _Path(__file__).resolve().parents[1]
-if str(_ROOT) not in sys.path:
-    sys.path.insert(0, str(_ROOT))
+_HERE = _Path(__file__).resolve().parent
+_ROOT = _HERE.parent
+for _candidate in (_ROOT, _HERE, _Path.cwd(), _Path.cwd().parent):
+    _s = str(_candidate)
+    if _s not in sys.path:
+        sys.path.insert(0, _s)
 
 import json
 from typing import AsyncGenerator
@@ -21,7 +24,6 @@ from typing import AsyncGenerator
 from fastapi import Depends, FastAPI, HTTPException, status
 from fastapi.openapi.utils import get_openapi
 from fastapi.responses import HTMLResponse, PlainTextResponse, StreamingResponse
-from fastapi.security import HTTPBearer
 
 from ai_platform import __version__
 from ai_platform.core.errors import (
@@ -39,8 +41,6 @@ from ai_platform.policy.errors import HumanApprovalRequiredError, PolicyDeniedEr
 from ai_platform.runtime.authorized import AuthorizedModelRuntime
 from api.dependencies import require_auth, require_runtime
 from api.models import GenerateRequest
-
-_SECURITY = HTTPBearer(auto_error=False, description="Supabase access token (Bearer JWT)")
 
 app = FastAPI(
     title="AI Platform",
@@ -324,3 +324,12 @@ async def stream(
             "X-Accel-Buffering": "no",
         },
     )
+
+
+# AWS/Vercel-compatible ASGI adapter (used when runtime expects `handler`).
+try:
+    from mangum import Mangum
+
+    handler = Mangum(app)
+except Exception:  # pragma: no cover - optional at runtime
+    handler = app  # type: ignore[assignment]

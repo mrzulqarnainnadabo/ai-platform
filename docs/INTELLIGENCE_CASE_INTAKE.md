@@ -93,6 +93,22 @@ The domain remains behind `CaseRepository`. Local development and unit tests use
 
 The Supabase service-role credential must never be exposed to browser code.
 
+## Vercel production environment checklist
+
+Set these exact variable names in the **Vercel Production** environment. Never commit their values.
+
+```text
+INTEL_CASE_STORE=supabase
+SUPABASE_URL
+SUPABASE_SERVICE_ROLE_KEY
+SUPABASE_PUBLISHABLE_KEY
+OPENAI_API_KEY or XAI_API_KEY
+```
+
+`SUPABASE_SERVICE_ROLE_KEY` is server-only and is used by `SupabaseCaseRepository`; it must not be placed in browser-exposed variables such as `NEXT_PUBLIC_*`. `SUPABASE_PUBLISHABLE_KEY` is used for Supabase JWT verification at the application boundary. The provider key is also server-side only.
+
+Production is not considered verified until an HTTP smoke test against the actual deployment succeeds with the intended environment configuration.
+
 ## Explicit non-goals
 
 - jurisdiction or institution resolution

@@ -2,6 +2,16 @@
 
 Everything here is an application boundary. The provider-neutral platform package
 must not import FastAPI, Supabase, or HTTP concerns.
+
+Required environment (server-side only):
+  SUPABASE_URL, SUPABASE_PUBLISHABLE_KEY
+  OPENAI_API_KEY and/or XAI_API_KEY (for non-loopback providers)
+
+Optional:
+  OPENAI_BASE_URL, AI_PLATFORM_PROVIDER, AI_PLATFORM_PROVIDER_TIMEOUT_SECONDS,
+  AI_PLATFORM_TENANT_CLAIM, AI_PLATFORM_PERMISSIONS_CLAIM
+
+Do not accept client-supplied tenant_id or permissions — only verified JWT claims.
 """
 
 from __future__ import annotations

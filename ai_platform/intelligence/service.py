@@ -72,7 +72,7 @@ class CaseService:
             case=case,
             assertions=self.repository.list_assertions(case.id),
             evidence=self.repository.list_evidence(case.id),
-            audit_events=self.repository.list_audit(case.id),
+            audit_events=self.repository.list_audit(case.id, case.tenant_id),
             missing_evidence_questions=list(case.missing_evidence_questions),
         )
 
@@ -128,7 +128,6 @@ class CaseService:
     async def triage(self, auth: AuthorizationContext, case_id: str, runtime: AuthorizedModelRuntime,
                      *, model_name: str, provider_name: str = "openai-compatible") -> CaseAggregate:
         self.authorize(auth, Capability.CASE_TRIAGE)
-        # Defense in depth: also require model.generate so 403 happens before runtime work.
         self.authorize(auth, Capability.MODEL_GENERATE)
         case = self._get_owned(auth, case_id)
         config = ModelConfig(
@@ -213,9 +212,7 @@ class EvidenceService:
         self.repository.save_evidence(evidence)
         if assertion_id:
             assertion.evidence_ids.append(evidence.id)
-            # Linking evidence does not promote assertion kind to fact; that is a later verification step.
             self.repository.save_assertion(assertion)
-        # Audit is case-scoped so CaseAggregate can list it; raw body is not stored in audit.
         canonical = {
             "case_id": case_id,
             "evidence_id": evidence.id,

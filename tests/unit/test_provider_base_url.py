@@ -26,9 +26,15 @@ def test_rejects_private_and_metadata_ips():
         "https://10.0.0.1/v1",
         "https://192.168.1.1/v1",
         "https://172.16.0.1/v1",
+        "https://2852039166/v1",  # 169.254.169.254 encoded as integer
+        "http://017700000001/v1",  # 127.0.0.1 in octal - rejected because HTTP requires explicit localhost/127.0.0.1
     ):
-        with pytest.raises(ValueError, match="private|link-local|reserved"):
-            validate_provider_base_url(bad)
+        if "017700000001" in bad and "http://" in bad:
+            with pytest.raises(ValueError, match="HTTPS"):
+                validate_provider_base_url(bad)
+        else:
+            with pytest.raises(ValueError, match="private|link-local|reserved"):
+                validate_provider_base_url(bad)
 
 
 def test_rejects_empty_and_bad_scheme():

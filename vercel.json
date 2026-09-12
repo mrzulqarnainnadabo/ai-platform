@@ -25,6 +25,7 @@
     }
   ],
   "routes": [
+    { "src": "^/$", "status": 307, "headers": { "Location": "/app/cases" } },
     { "src": "/app(?:/)?", "dest": "api/frontdoor.py" },
     { "src": "/(.*)", "dest": "api/index.py" }
   ]

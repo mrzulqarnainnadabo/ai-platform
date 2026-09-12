@@ -56,6 +56,7 @@ jobs:
         run: |
           rsync -a --delete \
             --exclude='.git/' \
+            --exclude='.github/' \
             --exclude='.github/workflows/' \
             --exclude='README.md' \
             --exclude='UPSTREAM_FOUNDATION.md' \
@@ -64,8 +65,21 @@ jobs:
             --exclude='PLATFORM_STRATEGY.md' \
             --exclude='AGENTS.md' \
             --exclude='JULES_PHASE_1_IMPORT_AUDIT.md' \
+            --exclude='docs/' \
             --exclude='docs/ROADMAP.md' \
             --exclude='docs/audit/' \
+            --exclude='docs/FRONTDOOR.md' \
+            --exclude='api/' \
+            --exclude='ai_platform/' \
+            --exclude='tests/' \
+            --exclude='examples/' \
+            --exclude='supabase/' \
+            --exclude='vercel.json' \
+            --exclude='requirements.txt' \
+            --exclude='pyproject.toml' \
+            --exclude='.env.example' \
+            --exclude='.python-version' \
+            --exclude='.gitignore' \
             /tmp/awesome-llm-apps/ ./
 
       - name: Record upstream provenance
@@ -91,15 +105,4 @@ jobs:
             exit 0
           fi
           git commit -m "chore: sync awesome-llm-apps foundation"
-          git push --force-with-lease origin "$SYNC_BRANCH"
-
-      - name: Open or update review PR
-        env:
-          GH_TOKEN: ${{ github.token }}
-        run: |
-          gh pr create \
-            --base main \
-            --head "$SYNC_BRANCH" \
-            --title "chore: sync upstream AI foundation" \
-            --body "Automated upstream synchronization from Shubhamsaboo/awesome-llm-apps. Review licensing, dependency, security, and compatibility impact before merging." \
-            2>/dev/null || true
+          git push -u origin "$SYNC_BRANCH" --force

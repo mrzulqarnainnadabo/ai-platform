@@ -12,6 +12,10 @@ from enum import Enum
 class Capability(str, Enum):
     MODEL_GENERATE = "model.generate"
     MODEL_STREAM = "model.stream"
+    CASE_CREATE = "case.create"
+    CASE_READ = "case.read"
+    CASE_TRIAGE = "case.triage"
+    EVIDENCE_ATTACH = "evidence.attach"
 
 
 def parse_capability(value: str) -> Capability:

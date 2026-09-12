@@ -23,7 +23,7 @@ class CaseRepository(Protocol):
     def save_evidence(self, evidence: Evidence) -> None: ...
     def list_evidence(self, case_id: str) -> list[Evidence]: ...
     def save_audit(self, event: AuditEvent) -> None: ...
-    def list_audit(self, object_id: str) -> list[AuditEvent]: ...
+    def list_audit(self, object_id: str, tenant_id: str | None = None) -> list[AuditEvent]: ...
 
 
 class InMemoryCaseRepository:
@@ -67,6 +67,10 @@ class InMemoryCaseRepository:
         with self._lock:
             self._audits[event.id] = deepcopy(event)
 
-    def list_audit(self, object_id: str) -> list[AuditEvent]:
+    def list_audit(self, object_id: str, tenant_id: str | None = None) -> list[AuditEvent]:
         with self._lock:
-            return [deepcopy(x) for x in self._audits.values() if x.object_id == object_id]
+            return [
+                deepcopy(x)
+                for x in self._audits.values()
+                if x.object_id == object_id and (tenant_id is None or x.tenant_id == tenant_id)
+            ]

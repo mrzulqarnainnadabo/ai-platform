@@ -8,10 +8,13 @@ browser only forwards the Supabase access token to the existing protected API.
 from __future__ import annotations
 
 import html
+import json
 import os
 
 from fastapi import FastAPI
 from fastapi.responses import HTMLResponse
+
+from api.dependencies import default_model_name
 
 app = FastAPI(title="AI Platform App", docs_url=None, redoc_url=None, openapi_url=None)
 
@@ -33,6 +36,7 @@ def _page(supabase_url: str, publishable_key: str, config_error: str) -> str:
     safe_url = html.escape(supabase_url, quote=True)
     safe_key = html.escape(publishable_key, quote=True)
     safe_error = html.escape(config_error)
+    safe_model = json.dumps(default_model_name()).replace("<", "\\u003c")
     return f"""<!doctype html>
 <html lang="en">
 <head>
@@ -96,7 +100,7 @@ import {{ createClient }} from 'https://esm.sh/@supabase/supabase-js@2';
 
 const SUPABASE_URL = {safe_url!r};
 const SUPABASE_PUBLISHABLE_KEY = {safe_key!r};
-const MODEL = 'gpt-4o-mini';
+const MODEL = {safe_model};
 const supabase = (SUPABASE_URL && SUPABASE_PUBLISHABLE_KEY) ? createClient(SUPABASE_URL, SUPABASE_PUBLISHABLE_KEY, {{ auth: {{ persistSession:true, autoRefreshToken:true, detectSessionInUrl:true }} }}) : null;
 
 const $ = id => document.getElementById(id);

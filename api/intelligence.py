@@ -15,7 +15,7 @@ from ai_platform.policy.authorization import AuthorizationContext
 from ai_platform.policy.capabilities import Capability
 from ai_platform.policy.errors import PolicyDeniedError
 from ai_platform.runtime.authorized import AuthorizedModelRuntime
-from api.dependencies import require_auth, require_runtime
+from api.dependencies import default_model_name, require_auth, require_runtime
 
 router = APIRouter(prefix="/api/v1/cases", tags=["cases"])
 _repository = get_case_repository()
@@ -118,11 +118,13 @@ async def get_case(case_id: str, auth: AuthorizationContext = Depends(require_au
 @router.post("/{case_id}/triage")
 async def triage_case(case_id: str, auth: AuthorizationContext = Depends(require_auth)) -> dict:
     try:
-        # Authorize before resolving provider configuration so a denied request
-        # deterministically returns 403 and cannot trigger model work.
+        # Authorize both capabilities before resolving provider configuration or
+        # constructing the runtime. A caller without model.generate must receive
+        # a deterministic 403 without any provider initialization.
         _case_service.authorize(auth, Capability.CASE_TRIAGE)
+        _case_service.authorize(auth, Capability.MODEL_GENERATE)
         runtime: AuthorizedModelRuntime = require_runtime()
-        model_name = (os.getenv("AI_PLATFORM_TRIAGE_MODEL") or "gpt-4o-mini").strip()
+        model_name = (os.getenv("AI_PLATFORM_TRIAGE_MODEL") or default_model_name()).strip()
         return _aggregate_response(await _case_service.triage(auth, case_id, runtime, model_name=model_name))
     except HTTPException:
         raise

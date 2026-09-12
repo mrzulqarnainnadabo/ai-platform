@@ -3,9 +3,11 @@
 Everything here is an application boundary. The provider-neutral platform package
 must not import FastAPI, Supabase, or HTTP concerns.
 
-Required environment (server-side only):
+Required production environment (server-side only):
   SUPABASE_URL, SUPABASE_PUBLISHABLE_KEY
+  SUPABASE_SERVICE_ROLE_KEY when INTEL_CASE_STORE=supabase
   OPENAI_API_KEY and/or XAI_API_KEY (for non-loopback providers)
+  INTEL_CASE_STORE=supabase on Vercel for durable intelligence case storage
 
 Optional:
   OPENAI_BASE_URL, AI_PLATFORM_PROVIDER, AI_PLATFORM_PROVIDER_TIMEOUT_SECONDS,
@@ -61,6 +63,15 @@ def _resolve_cloud_provider_credentials() -> tuple[str, str]:
         api_key = (os.getenv("OPENAI_API_KEY") or os.getenv("XAI_API_KEY") or "").strip()
 
     return base_url, api_key
+
+
+def default_model_name() -> str:
+    """Return a provider-compatible default model for browser and triage callers."""
+    configured = (os.getenv("AI_PLATFORM_DEFAULT_MODEL") or "").strip()
+    if configured:
+        return configured
+    base_url = (os.getenv("OPENAI_BASE_URL") or "https://api.openai.com/v1").strip().rstrip("/").lower()
+    return "grok-4.6" if base_url == "https://api.x.ai/v1" else "gpt-4o-mini"
 
 
 @lru_cache(maxsize=1)

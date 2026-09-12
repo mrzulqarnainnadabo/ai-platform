@@ -114,6 +114,13 @@ class CaseService:
         case = self.create(auth, summary, title)
         return self._aggregate(case)
 
+    def list(self, auth: AuthorizationContext) -> list[Case]:
+        self.authorize(auth, Capability.CASE_READ)
+        tenant_id = auth.identity.tenant_id
+        if not tenant_id:
+            return []
+        return self.repository.list_cases(tenant_id)
+
     def get(self, auth: AuthorizationContext, case_id: str) -> CaseAggregate:
         self.authorize(auth, Capability.CASE_READ)
         return self._aggregate(self._get_owned(auth, case_id))

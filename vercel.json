@@ -12,9 +12,20 @@
           "requirements.txt"
         ]
       }
+    },
+    {
+      "src": "api/frontdoor.py",
+      "use": "@vercel/python",
+      "config": {
+        "maxLambdaSize": "10mb",
+        "includeFiles": [
+          "api/frontdoor.py"
+        ]
+      }
     }
   ],
   "routes": [
+    { "src": "/app(?:/)?", "dest": "api/frontdoor.py" },
     { "src": "/(.*)", "dest": "api/index.py" }
   ]
 }

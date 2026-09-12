@@ -24,6 +24,7 @@ class CaseRepository(Protocol):
     def list_evidence(self, case_id: str) -> list[Evidence]: ...
     def save_audit(self, event: AuditEvent) -> None: ...
     def list_audit(self, object_id: str, tenant_id: str | None = None) -> list[AuditEvent]: ...
+    def create_case_bundle(self, case: Case, assertion: Assertion, audit: AuditEvent) -> None: ...
 
 
 class InMemoryCaseRepository:
@@ -74,3 +75,16 @@ class InMemoryCaseRepository:
                 for x in self._audits.values()
                 if x.object_id == object_id and (tenant_id is None or x.tenant_id == tenant_id)
             ]
+
+    def create_case_bundle(self, case: Case, assertion: Assertion, audit: AuditEvent) -> None:
+        """Atomically persist a new case aggregate under the repository lock."""
+        if assertion.case_id != case.id or audit.object_id != case.id:
+            raise ValueError("case bundle references do not match case")
+        if assertion.id in self._assertions or case.id in self._cases or audit.id in self._audits:
+            raise ValueError("case bundle contains an existing identifier")
+        if assertion.case_id != case.id or audit.tenant_id != case.tenant_id:
+            raise ValueError("case bundle tenant references do not match case")
+        with self._lock:
+            self._cases[case.id] = deepcopy(case)
+            self._assertions[assertion.id] = deepcopy(assertion)
+            self._audits[audit.id] = deepcopy(audit)

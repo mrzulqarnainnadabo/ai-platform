@@ -1,0 +1,15 @@
+[submodule "third_party/agent-memory"]
+	path = third_party/agent-memory
+	url = https://github.com/neo4j-labs/agent-memory.git
+[ submodule "third_party/khive" ]
+	path = third_party/khive
+	url = https://github.com/ohdearquant/khive.git
+[ submodule "third_party/heard"]
+	path = third_party/heard
+	url = https://github.com/StevenWang-CY/Heard.git
+[ submodule "third_party/ciutatis"]
+	path = third_party/ciutatis
+	url = https://github.com/tebayoso/ciutatis.git
+[ submodule "third_party/kg-research-agent"]
+	path = third_party/kg-research-agent
+	url = https://github.com/r4stin/kg-research-agent.git

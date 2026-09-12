@@ -80,6 +80,8 @@ See `.env.example` for a full template. Never commit `.env`.
 | `AI_PLATFORM_PROVIDER` | No | No | `openai-compatible` (default) or `ollama` |
 | `AI_PLATFORM_TRIAGE_MODEL` | No | No | Server-selected case triage model |
 
+When both cloud keys are configured, the endpoint selects the matching credential: xAI (`https://api.x.ai/v1`) prefers `XAI_API_KEY`; OpenAI (`https://api.openai.com/v1`) prefers `OPENAI_API_KEY`. This prevents a configured second provider key from being sent to the wrong upstream.
+
 For Vercel Production, use `INTEL_CASE_STORE=supabase`. Ollama is **local only** and loopback-bound (`127.0.0.1:11434`); a Vercel deployment cannot reach Ollama running on your laptop. Use a cloud provider for Vercel Production, or host Ollama where the application can safely reach it.
 
 ### Expected HTTP status codes

@@ -53,6 +53,7 @@ class EvidenceIngestionPort(Protocol):
 
     def extract(self, request: IngestRequest) -> IngestExtract:
         """Return extracted text with provenance hints. Must not call model providers."""
+        ...
 
 
 class PassthroughTextIngestion:

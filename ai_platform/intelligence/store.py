@@ -1,7 +1,10 @@
 """Select case store implementation from environment.
 
-INTEL_CASE_STORE=memory (default) → InMemoryCaseRepository
+INTEL_CASE_STORE=memory → InMemoryCaseRepository (local development/tests)
 INTEL_CASE_STORE=supabase → SupabaseCaseRepository using server credentials
+
+On Vercel, the absence of INTEL_CASE_STORE defaults to the durable Supabase
+store and therefore fails closed if server credentials are missing.
 
 Server env (never expose to browser):
   SUPABASE_URL
@@ -38,8 +41,11 @@ def _supabase_server_client() -> Any:
 
 @lru_cache(maxsize=1)
 def get_case_repository() -> CaseRepository:
-    mode = (os.getenv("INTEL_CASE_STORE") or "memory").strip().lower()
-    if mode in ("", "memory", "mem", "inmemory"):
+    configured = (os.getenv("INTEL_CASE_STORE") or "").strip().lower()
+    # Vercel must never silently fall back to process-local storage. Local runs
+    # retain the lightweight memory implementation unless explicitly configured.
+    mode = configured or ("supabase" if os.getenv("VERCEL") == "1" else "memory")
+    if mode in ("memory", "mem", "inmemory"):
         return InMemoryCaseRepository()
     if mode in ("supabase", "postgres", "pg"):
         from .supabase_repository import SupabaseCaseRepository

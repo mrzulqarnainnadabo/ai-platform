@@ -40,18 +40,22 @@ def _iso(value: datetime) -> str:
     return value.isoformat()
 
 
+def _case_response(case) -> dict:
+    return {
+        "id": case.id,
+        "tenant_id": case.tenant_id,
+        "created_by_subject": case.created_by_subject,
+        "title": case.title,
+        "summary": case.summary,
+        "status": case.status.value,
+        "created_at": _iso(case.created_at),
+        "updated_at": _iso(case.updated_at),
+    }
+
+
 def _aggregate_response(aggregate: CaseAggregate) -> dict:
     return {
-        "case": {
-            "id": aggregate.case.id,
-            "tenant_id": aggregate.case.tenant_id,
-            "created_by_subject": aggregate.case.created_by_subject,
-            "title": aggregate.case.title,
-            "summary": aggregate.case.summary,
-            "status": aggregate.case.status.value,
-            "created_at": _iso(aggregate.case.created_at),
-            "updated_at": _iso(aggregate.case.updated_at),
-        },
+        "case": _case_response(aggregate.case),
         "assertions": [
             {"id": x.id, "case_id": x.case_id, "text": x.text, "kind": x.kind.value,
              "created_by": x.created_by, "requires_evidence": x.requires_evidence,
@@ -90,6 +94,15 @@ async def create_case(request: CaseCreateRequest, auth: AuthorizationContext = D
         # Creation is authorized independently; the response must not silently
         # require case.read as a second capability just to serialize the result.
         return _aggregate_response(_case_service.create_aggregate(auth, request.summary, request.title))
+    except Exception as exc:
+        raise _raise(exc) from exc
+
+
+@router.get("")
+async def list_cases(auth: AuthorizationContext = Depends(require_auth)) -> dict:
+    """List only cases belonging to the caller's authorization tenant."""
+    try:
+        return {"cases": [_case_response(case) for case in _case_service.list(auth)]}
     except Exception as exc:
         raise _raise(exc) from exc
 

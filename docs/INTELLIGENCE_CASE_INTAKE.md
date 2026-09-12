@@ -23,6 +23,12 @@ During model triage, `fact` assertions are rejected because the model has not es
 
 All endpoints require an authenticated Supabase JWT with trusted capability claims.
 
+### List cases
+
+`GET /api/v1/cases`
+
+Returns only cases belonging to the caller's authorization tenant and requires `case.read`. The endpoint is intentionally tenant-scoped on the server; the browser cannot supply a tenant filter to widen access.
+
 ### Create a case
 
 `POST /api/v1/cases`
@@ -66,6 +72,23 @@ The triage model is selected server-side with `AI_PLATFORM_TRIAGE_MODEL` and is 
 
 For `url` and `document_ref`, a non-blank `source_uri` is required.
 
+## Browser workspace
+
+The enterprise case workspace is available at `/app/cases`. It uses Supabase Auth in the browser and forwards only the user's access token to the protected case API. It does not render the service-role credential or provider credentials.
+
+The workspace provides:
+
+- tenant-scoped case queue with status/search filters
+- case intake form
+- case detail workspace with assertions and evidence
+- AI triage loading/result state
+- missing-evidence questions
+- evidence attachment with provenance fields
+- immutable audit ledger presentation
+- explicit advisory messaging so model suggestions are not presented as institutional facts
+
+The browser is a client of the governed API, not an authorization boundary.
+
 ## Evidence ingestion boundary
 
 The first-party `EvidenceIngestionPort` defines the future adapter boundary for text, URLs, PDF/DOCX, images, audio, and video. The vertical slice intentionally ships only a safe text passthrough adapter.
@@ -76,7 +99,7 @@ Future engines such as document parsing, OCR, speech transcription, media extrac
 
 1. Supabase JWT claims are the only source of identity, tenant, and capabilities.
 2. Client request bodies cannot grant permissions or change tenant identity.
-3. Case access is tenant-isolated.
+3. Case access is tenant-isolated, including the list endpoint.
 4. Each case operation requires its explicit capability.
 5. A denied triage request is rejected before provider configuration/model execution.
 6. Model calls happen only through `AuthorizedModelRuntime`.
@@ -118,5 +141,4 @@ Production is not considered verified until an HTTP smoke test against the actua
 - full PDF/OCR/Whisper pipeline
 - Neo4j, Chroma, LangChain, CrewAI, ADK, or other agent frameworks
 - streaming triage
-- `/app` UI redesign
-- deployment or automatic provider configuration changes
+- automatic provider configuration changes

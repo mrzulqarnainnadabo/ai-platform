@@ -38,6 +38,20 @@ def _as_list(value: Any) -> list:
     return list(value)
 
 
+def _case_from_row(r: Mapping[str, Any]) -> Case:
+    return Case(
+        id=str(r["id"]),
+        tenant_id=str(r["tenant_id"]),
+        created_by_subject=str(r["created_by_subject"]),
+        title=str(r["title"]),
+        summary=str(r["summary"]),
+        status=CaseStatus(str(r["status"])),
+        created_at=_parse_dt(r["created_at"]),
+        updated_at=_parse_dt(r["updated_at"]),
+        missing_evidence_questions=[str(x) for x in _as_list(r.get("missing_evidence_questions"))],
+    )
+
+
 class SupabaseCaseRepository:
     """Maps domain objects to ai_platform_* tables from migration 0003."""
 
@@ -83,18 +97,18 @@ class SupabaseCaseRepository:
         data = getattr(row, "data", None) or []
         if not data:
             return None
-        r = data[0]
-        return Case(
-            id=str(r["id"]),
-            tenant_id=str(r["tenant_id"]),
-            created_by_subject=str(r["created_by_subject"]),
-            title=str(r["title"]),
-            summary=str(r["summary"]),
-            status=CaseStatus(str(r["status"])),
-            created_at=_parse_dt(r["created_at"]),
-            updated_at=_parse_dt(r["updated_at"]),
-            missing_evidence_questions=[str(x) for x in _as_list(r.get("missing_evidence_questions"))],
+        return _case_from_row(data[0])
+
+    def list_cases(self, tenant_id: str) -> list[Case]:
+        row = (
+            self._client.table("ai_platform_cases")
+            .select("*")
+            .eq("tenant_id", tenant_id)
+            .order("updated_at", desc=True)
+            .execute()
         )
+        data = getattr(row, "data", None) or []
+        return [_case_from_row(r) for r in data]
 
     def save_assertion(self, assertion: Assertion) -> None:
         tenant_id = self._tenant_for_case(assertion.case_id)

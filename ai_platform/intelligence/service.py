@@ -76,10 +76,10 @@ class CaseService:
             missing_evidence_questions=list(case.missing_evidence_questions),
         )
 
-    def _audit(self, auth: AuthorizationContext, action: str, object_type: str, object_id: str, payload: dict[str, Any]) -> None:
+    def _audit(self, auth: AuthorizationContext, action: str, object_type: str, object_id: str, payload: dict[str, Any]) -> AuditEvent:
         canonical = json.dumps(payload, sort_keys=True, separators=(",", ":"), default=str)
         digest = hashlib.sha256(canonical.encode("utf-8")).hexdigest()
-        self.repository.save_audit(AuditEvent(
+        return AuditEvent(
             id=uuid4().hex,
             tenant_id=auth.identity.tenant_id,
             actor_subject=auth.identity.subject,
@@ -88,7 +88,7 @@ class CaseService:
             object_id=object_id,
             payload_digest=digest,
             metadata={"keys": sorted(payload.keys())},
-        ))
+        )
 
     def create(self, auth: AuthorizationContext, summary: str, title: Optional[str] = None) -> Case:
         self.authorize(auth, Capability.CASE_CREATE)
@@ -98,11 +98,16 @@ class CaseService:
         clean_title = (title or summary[:120]).strip()[:200] or "Untitled case"
         case = new_case(tenant_id=auth.identity.tenant_id, subject=auth.identity.subject,
                         title=clean_title, summary=summary)
-        self.repository.save_case(case)
         initial = new_assertion(case_id=case.id, text=summary, kind=AssertionKind.UNKNOWN,
                                 created_by="user", requires_evidence=True)
-        self.repository.save_assertion(initial)
-        self._audit(auth, "case.created", "case", case.id, {"status": case.status.value, "initial_assertion": initial.id})
+        audit = self._audit(
+            auth,
+            "case.created",
+            "case",
+            case.id,
+            {"status": case.status.value, "initial_assertion": initial.id},
+        )
+        self.repository.create_case_bundle(case, initial, audit)
         return case
 
     def create_aggregate(self, auth: AuthorizationContext, summary: str, title: Optional[str] = None) -> CaseAggregate:
@@ -175,8 +180,13 @@ class CaseService:
         case.updated_at = datetime.now(timezone.utc)
         case.missing_evidence_questions = parsed.missing_evidence_questions
         self.repository.save_case(case)
-        self._audit(auth, "case.triaged", "case", case.id,
-                    {"assertion_count": len(parsed.assertions), "missing_evidence_count": len(parsed.missing_evidence_questions)})
+        self.repository.save_audit(self._audit(
+            auth,
+            "case.triaged",
+            "case",
+            case.id,
+            {"assertion_count": len(parsed.assertions), "missing_evidence_count": len(parsed.missing_evidence_questions)},
+        ))
         return self._aggregate(case)
 
 

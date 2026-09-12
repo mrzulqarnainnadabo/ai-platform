@@ -162,10 +162,6 @@ class SupabaseCaseRepository:
             "created_by_subject": evidence.created_by_subject,
             "created_at": evidence.created_at.isoformat(),
         }
-        # Evidence is append-only at the database layer. Using upsert here would
-        # turn a repeated ID into an UPDATE attempt, which the append-only trigger
-        # correctly rejects. IDs are generated once per evidence record, so a
-        # plain INSERT matches the domain contract.
         self._client.table("ai_platform_evidence").insert(payload).execute()
 
     def list_evidence(self, case_id: str) -> list[Evidence]:
@@ -206,6 +202,50 @@ class SupabaseCaseRepository:
             "created_at": event.created_at.isoformat(),
         }
         self._client.table("ai_platform_audit_events").insert(payload).execute()
+
+    def create_case_bundle(self, case: Case, assertion: Assertion, audit: AuditEvent) -> None:
+        """Persist the case, initial assertion, and audit event in one DB transaction."""
+        if assertion.case_id != case.id or audit.object_id != case.id:
+            raise ValueError("case bundle references do not match case")
+        if assertion.case_id != case.id or audit.tenant_id != case.tenant_id:
+            raise ValueError("case bundle tenant references do not match case")
+        case_payload = {
+            "id": case.id,
+            "tenant_id": case.tenant_id,
+            "created_by_subject": case.created_by_subject,
+            "title": case.title,
+            "summary": case.summary,
+            "status": case.status.value,
+            "missing_evidence_questions": case.missing_evidence_questions,
+            "created_at": case.created_at.isoformat(),
+            "updated_at": case.updated_at.isoformat(),
+        }
+        assertion_payload = {
+            "id": assertion.id,
+            "case_id": assertion.case_id,
+            "tenant_id": case.tenant_id,
+            "text": assertion.text,
+            "kind": assertion.kind.value,
+            "created_by": assertion.created_by,
+            "requires_evidence": assertion.requires_evidence,
+            "evidence_ids": assertion.evidence_ids,
+            "created_at": assertion.created_at.isoformat(),
+        }
+        audit_payload = {
+            "id": audit.id,
+            "tenant_id": audit.tenant_id,
+            "actor_subject": audit.actor_subject,
+            "action": audit.action,
+            "object_type": audit.object_type,
+            "object_id": audit.object_id,
+            "payload_digest": audit.payload_digest,
+            "metadata": dict(audit.metadata),
+            "created_at": audit.created_at.isoformat(),
+        }
+        self._client.rpc(
+            "create_case_bundle",
+            {"p_case": case_payload, "p_assertion": assertion_payload, "p_audit": audit_payload},
+        ).execute()
 
     def list_audit(self, object_id: str, tenant_id: str | None = None) -> list[AuditEvent]:
         query = (

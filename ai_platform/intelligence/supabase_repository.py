@@ -7,7 +7,7 @@ from __future__ import annotations
 
 import json
 from datetime import datetime
-from typing import Any, Mapping, Optional
+from typing import Any, Mapping
 
 from .models import (
     Assertion,
@@ -163,7 +163,11 @@ class SupabaseCaseRepository:
             "created_by_subject": evidence.created_by_subject,
             "created_at": evidence.created_at.isoformat(),
         }
-        self._client.table("ai_platform_evidence").upsert(payload).execute()
+        # Evidence is append-only at the database layer. Using upsert here would
+        # turn a repeated ID into an UPDATE attempt, which the append-only trigger
+        # correctly rejects. IDs are generated once per evidence record, so a
+        # plain INSERT matches the domain contract.
+        self._client.table("ai_platform_evidence").insert(payload).execute()
 
     def list_evidence(self, case_id: str) -> list[Evidence]:
         row = (

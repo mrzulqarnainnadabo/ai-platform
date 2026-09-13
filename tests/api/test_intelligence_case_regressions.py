@@ -3,8 +3,19 @@
 import asyncio
 
 import pytest
+from fastapi import status
 
 from api.cases_frontend import cases_page
+from api.intelligence import _raise
+from ai_platform.core.errors import (
+    AuthenticationError,
+    ContextWindowExceededError,
+    InvalidRequestError,
+    ProviderQuotaError,
+    ProviderTimeoutError,
+    ProviderUnavailableError,
+    RateLimitError,
+)
 from ai_platform.intelligence.models import AuditEvent, EvidenceSourceType
 from ai_platform.intelligence.repository import InMemoryCaseRepository
 from ai_platform.intelligence.service import CaseNotFoundError, CaseService, EvidenceService, InvalidCaseInput
@@ -134,6 +145,22 @@ def test_audit_reads_are_tenant_scoped():
     assert all(event.id != "audit-other-tenant" for event in aggregate.audit_events)
 
 
+def test_provider_errors_map_to_safe_http_statuses():
+    cases = [
+        (AuthenticationError("bad key"), status.HTTP_502_BAD_GATEWAY, "Model provider authentication failed"),
+        (RateLimitError("slow down"), status.HTTP_429_TOO_MANY_REQUESTS, "Model provider rate limit exceeded"),
+        (ProviderQuotaError("no quota"), status.HTTP_402_PAYMENT_REQUIRED, "Model provider quota unavailable"),
+        (ProviderTimeoutError("timed out"), status.HTTP_504_GATEWAY_TIMEOUT, "Model provider request timed out"),
+        (ProviderUnavailableError("down"), status.HTTP_503_SERVICE_UNAVAILABLE, "Model provider unavailable"),
+        (ContextWindowExceededError("too large"), status.HTTP_413_REQUEST_ENTITY_TOO_LARGE, "Case is too large for the model context window"),
+        (InvalidRequestError("rejected"), status.HTTP_502_BAD_GATEWAY, "Model provider rejected the request"),
+    ]
+    for exc, expected_status, expected_detail in cases:
+        response = _raise(exc)
+        assert response.status_code == expected_status
+        assert response.detail == expected_detail
+
+
 def test_cases_page_escapes_browser_configuration(monkeypatch):
     monkeypatch.setenv("SUPABASE_URL", 'https://example.supabase.co/"><script>alert(1)</script>')
     monkeypatch.setenv("SUPABASE_PUBLISHABLE_KEY", 'public-key"><script>alert(2)</script>')
@@ -151,3 +178,10 @@ def test_cases_page_includes_email_redirect_to_option():
     body = cases_page().body.decode("utf-8")
     assert "emailRedirectTo" in body
     assert "${window.location.origin}/app/cases" in body
+
+
+def test_cases_page_preserves_success_after_list_refresh_failure():
+    body = cases_page().body.decode("utf-8")
+    assert "async function loadCases({showError=true}={})" in body
+    assert "const refreshed=await loadCases({showError:false})" in body
+    assert "Case created successfully." in body

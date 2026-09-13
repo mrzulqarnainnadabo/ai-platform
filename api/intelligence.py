@@ -1,6 +1,7 @@
 """Authenticated case-intake API."""
 from __future__ import annotations
 
+import logging
 import os
 from datetime import datetime
 from typing import Optional
@@ -8,6 +9,16 @@ from typing import Optional
 from fastapi import APIRouter, Depends, HTTPException, status
 from pydantic import BaseModel, Field
 
+from ai_platform.core.errors import (
+    AuthenticationError,
+    ContextWindowExceededError,
+    InvalidRequestError,
+    ProviderError,
+    ProviderQuotaError,
+    ProviderTimeoutError,
+    ProviderUnavailableError,
+    RateLimitError,
+)
 from ai_platform.intelligence.models import CaseAggregate, EvidenceSourceType
 from ai_platform.intelligence.service import CaseNotFoundError, CaseService, EvidenceService, InvalidCaseInput
 from ai_platform.intelligence.store import get_case_repository
@@ -16,6 +27,8 @@ from ai_platform.policy.capabilities import Capability
 from ai_platform.policy.errors import PolicyDeniedError
 from ai_platform.runtime.authorized import AuthorizedModelRuntime
 from api.dependencies import default_model_name, require_auth, require_runtime
+
+logger = logging.getLogger(__name__)
 
 router = APIRouter(prefix="/api/v1/cases", tags=["cases"])
 _repository = get_case_repository()
@@ -85,7 +98,28 @@ def _raise(exc: Exception) -> HTTPException:
         return HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Case not found")
     if isinstance(exc, (InvalidCaseInput, ValueError)):
         return HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail=str(exc))
+    if isinstance(exc, AuthenticationError):
+        return HTTPException(status_code=status.HTTP_502_BAD_GATEWAY, detail="Model provider authentication failed")
+    if isinstance(exc, RateLimitError):
+        return HTTPException(status_code=status.HTTP_429_TOO_MANY_REQUESTS, detail="Model provider rate limit exceeded")
+    if isinstance(exc, ProviderQuotaError):
+        return HTTPException(status_code=status.HTTP_402_PAYMENT_REQUIRED, detail="Model provider quota unavailable")
+    if isinstance(exc, ProviderTimeoutError):
+        return HTTPException(status_code=status.HTTP_504_GATEWAY_TIMEOUT, detail="Model provider request timed out")
+    if isinstance(exc, ProviderUnavailableError):
+        return HTTPException(status_code=status.HTTP_503_SERVICE_UNAVAILABLE, detail="Model provider unavailable")
+    if isinstance(exc, ContextWindowExceededError):
+        return HTTPException(status_code=status.HTTP_413_REQUEST_ENTITY_TOO_LARGE, detail="Case is too large for the model context window")
+    if isinstance(exc, InvalidRequestError):
+        return HTTPException(status_code=status.HTTP_502_BAD_GATEWAY, detail="Model provider rejected the request")
+    if isinstance(exc, ProviderError):
+        return HTTPException(status_code=status.HTTP_502_BAD_GATEWAY, detail="Model provider request failed")
     return HTTPException(status_code=status.HTTP_500_INTERNAL_SERVER_ERROR, detail="Case operation failed")
+
+
+def _log_unexpected(operation: str, exc: Exception) -> None:
+    # Never log case text, evidence bodies, credentials, or bearer tokens.
+    logger.exception("case operation failed: %s (%s)", operation, type(exc).__name__)
 
 
 @router.post("")
@@ -95,6 +129,8 @@ async def create_case(request: CaseCreateRequest, auth: AuthorizationContext = D
         # require case.read as a second capability just to serialize the result.
         return _aggregate_response(_case_service.create_aggregate(auth, request.summary, request.title))
     except Exception as exc:
+        if not isinstance(exc, (PolicyDeniedError, CaseNotFoundError, InvalidCaseInput, ValueError, ProviderError, HTTPException)):
+            _log_unexpected("create", exc)
         raise _raise(exc) from exc
 
 
@@ -104,6 +140,8 @@ async def list_cases(auth: AuthorizationContext = Depends(require_auth)) -> dict
     try:
         return {"cases": [_case_response(case) for case in _case_service.list(auth)]}
     except Exception as exc:
+        if not isinstance(exc, (PolicyDeniedError, CaseNotFoundError, InvalidCaseInput, ValueError, ProviderError, HTTPException)):
+            _log_unexpected("list", exc)
         raise _raise(exc) from exc
 
 
@@ -112,6 +150,8 @@ async def get_case(case_id: str, auth: AuthorizationContext = Depends(require_au
     try:
         return _aggregate_response(_case_service.get(auth, case_id))
     except Exception as exc:
+        if not isinstance(exc, (PolicyDeniedError, CaseNotFoundError, InvalidCaseInput, ValueError, ProviderError, HTTPException)):
+            _log_unexpected("get", exc)
         raise _raise(exc) from exc
 
 
@@ -129,6 +169,8 @@ async def triage_case(case_id: str, auth: AuthorizationContext = Depends(require
     except HTTPException:
         raise
     except Exception as exc:
+        if not isinstance(exc, (PolicyDeniedError, CaseNotFoundError, InvalidCaseInput, ValueError, ProviderError)):
+            _log_unexpected("triage", exc)
         raise _raise(exc) from exc
 
 
@@ -152,4 +194,6 @@ async def attach_evidence(case_id: str, request: EvidenceAttachRequest,
             "created_at": _iso(evidence.created_at),
         }
     except Exception as exc:
+        if not isinstance(exc, (PolicyDeniedError, CaseNotFoundError, InvalidCaseInput, ValueError, ProviderError)):
+            _log_unexpected("evidence", exc)
         raise _raise(exc) from exc

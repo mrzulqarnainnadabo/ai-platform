@@ -178,3 +178,10 @@ def test_cases_page_includes_email_redirect_to_option():
     body = cases_page().body.decode("utf-8")
     assert "emailRedirectTo" in body
     assert "${window.location.origin}/app/cases" in body
+
+
+def test_cases_page_preserves_success_after_list_refresh_failure():
+    body = cases_page().body.decode("utf-8")
+    assert "async function loadCases({showError=true}={})" in body
+    assert "const refreshed=await loadCases({showError:false})" in body
+    assert "Case created successfully." in body

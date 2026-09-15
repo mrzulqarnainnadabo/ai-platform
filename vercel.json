@@ -1,29 +1,15 @@
 {
+  "$schema": "https://openapi.vercel.sh/vercel.json",
   "version": 2,
-  "builds": [
-    {
-      "src": "api/index.py",
-      "use": "@vercel/python",
-      "config": {
-        "maxLambdaSize": "50mb",
-        "includeFiles": [
-          "ai_platform/**",
-          "api/**",
-          "requirements.txt"
-        ]
-      }
+  "functions": {
+    "api/index.py": {
+      "includeFiles": "config/models.yaml",
+      "excludeFiles": "{tests/**,docs/**,.git/**,third_party/**,**/__pycache__/**,**/*.pyc,**/.pytest_cache/**,**/.mypy_cache/**,**/.ruff_cache/**,**/node_modules/**,**/*.bin,**/*.safetensors,**/*.pt,**/*.pth}"
     },
-    {
-      "src": "api/frontdoor.py",
-      "use": "@vercel/python",
-      "config": {
-        "maxLambdaSize": "10mb",
-        "includeFiles": [
-          "api/frontdoor.py"
-        ]
-      }
+    "api/frontdoor.py": {
+      "excludeFiles": "{tests/**,docs/**,.git/**,third_party/**,**/__pycache__/**,**/*.pyc,**/.pytest_cache/**,**/.mypy_cache/**,**/.ruff_cache/**,**/node_modules/**,**/*.bin,**/*.safetensors,**/*.pt,**/*.pth}"
     }
-  ],
+  },
   "routes": [
     { "src": "^/$", "status": 307, "headers": { "Location": "/app/cases" } },
     { "src": "^/app/?$", "dest": "api/frontdoor.py" },

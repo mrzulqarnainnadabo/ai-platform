@@ -5,7 +5,7 @@ from ai_platform.core.context import CancellationToken, ExecutionContext
 from ai_platform.core.errors import (AuthenticationError, CancellationError, ContextWindowExceededError,
     InvalidRequestError, KernelError, ProviderError, ProviderQuotaError, ProviderTimeoutError,
     ProviderUnavailableError, RateLimitError, normalize_provider_error)
-from ai_platform.core.messages import ContentPart, Message, Role, ToolCall, ToolResult
+from ai_platform.core.messages import ContentPart, Message, ProviderOptions, Role, ToolCall, ToolResult
 from ai_platform.core.provider import IModelProvider
 from ai_platform.core.response import FinishReason, ModelResponse, TokenUsage
 
@@ -13,5 +13,5 @@ __all__ = ["KernelError", "ProviderError", "AuthenticationError", "RateLimitErro
     "ProviderTimeoutError", "CancellationError", "ProviderQuotaError", "ProviderUnavailableError",
     "ContextWindowExceededError", "normalize_provider_error", "CancellationToken", "ExecutionContext",
     "MediaCapability", "ModelCapabilities", "ProviderCapabilities", "Role", "ContentPart", "ToolCall",
-    "ToolResult", "Message", "ResponseFormatType", "ResponseFormat", "ToolFunction", "ToolDefinition",
+    "ToolResult", "Message", "ProviderOptions", "ResponseFormatType", "ResponseFormat", "ToolFunction", "ToolDefinition",
     "ModelConfig", "FinishReason", "TokenUsage", "ModelResponse", "IModelProvider"]

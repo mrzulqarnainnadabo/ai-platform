@@ -85,7 +85,7 @@ class CancellationRuntime:
         yield RuntimeResult(
             ModelResponse(
                 Message(Role.ASSISTANT, "chunk"),
-                FinishReason.NONE,
+                FinishReason.CANCELLED,
                 TokenUsage(12, 7, 19),
                 "mock",
                 "mock",

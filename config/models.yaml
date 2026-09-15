@@ -1,0 +1,19 @@
+# Public model aliases exposed to platform clients.
+# Provider credentials and upstream model identifiers stay server-side.
+models:
+  fast-general:
+    provider: openai-compatible
+    model: ${AI_PLATFORM_FAST_GENERAL_MODEL}
+    max_tokens: 4096
+    input_cost_per_million: 0.0
+    output_cost_per_million: 0.0
+    requests_per_minute: 30
+    tokens_per_day: 100000
+  local-general:
+    provider: openai-compatible
+    model: ${AI_PLATFORM_LOCAL_GENERAL_MODEL}
+    max_tokens: 4096
+    input_cost_per_million: 0.0
+    output_cost_per_million: 0.0
+    requests_per_minute: 120
+    tokens_per_day: 1000000

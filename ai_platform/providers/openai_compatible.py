@@ -53,6 +53,8 @@ class OpenAICompatibleProvider(IModelProvider):
             raise ValueError(f"extra_params cannot override request fields: {names}")
 
         body = {"model": config.model_name, "messages": [self._message(m) for m in messages], "stream": stream}
+        if stream:
+            body["stream_options"] = {"include_usage": True}
         if config.temperature is not None: body["temperature"] = config.temperature
         if config.top_p is not None: body["top_p"] = config.top_p
         if config.max_tokens is not None: body["max_tokens"] = config.max_tokens

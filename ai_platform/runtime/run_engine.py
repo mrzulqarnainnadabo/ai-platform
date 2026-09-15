@@ -75,6 +75,8 @@ class RunEngine:
         ctx = context or ExecutionContext(tenant_id=tenant_id, timeout_seconds=config.timeout_seconds)
         run_id, step_id, call_id = uuid4().hex, uuid4().hex, uuid4().hex
         reservation: BudgetReservation | None = None
+        settlement_tokens = 0
+        provider_succeeded = False
         started = time.monotonic()
         self.store.create_run(run_id=run_id, tenant_id=tenant_id, subject_id=subject_id,
                               model_id=model_policy.id, provider=model_policy.provider,
@@ -92,10 +94,12 @@ class RunEngine:
                     request_id=run_id,
                 )
             result = await self.runtime.generate(messages, config, model_policy.provider, ctx)
+            provider_succeeded = True
             usage = result.response.usage.to_dict()
+            settlement_tokens = usage["total_tokens"]
             cost = model_policy.estimate_cost(usage["prompt_tokens"], usage["completion_tokens"])
             if reservation and self.rate_limits:
-                self.rate_limits.settle(reservation, actual_tokens=usage["total_tokens"])
+                self.rate_limits.settle(reservation, actual_tokens=settlement_tokens)
             self.store.complete(run_id=run_id, step_id=step_id, call_id=call_id, status="completed",
                                 usage=usage, cost_usd=cost,
                                 latency_ms=round((time.monotonic() - started) * 1000, 2))
@@ -104,8 +108,15 @@ class RunEngine:
             return RunResult(result.response, metadata, run_id)
         except Exception as exc:
             if reservation and self.rate_limits:
+                # The database settlement is now an atomic, durable state
+                # transition. Retrying here is intentional: it covers both a
+                # true settlement failure and the case where settlement
+                # committed but the client lost the response before completion.
                 try:
-                    self.rate_limits.settle(reservation, actual_tokens=0)
+                    self.rate_limits.settle(
+                        reservation,
+                        actual_tokens=settlement_tokens if provider_succeeded else 0,
+                    )
                 except Exception:
                     pass
             self.store.complete(run_id=run_id, step_id=step_id, call_id=call_id, status="failed",
@@ -125,7 +136,7 @@ class RunEngine:
         ctx = context or ExecutionContext(tenant_id=tenant_id, timeout_seconds=config.timeout_seconds)
         run_id, step_id, call_id = uuid4().hex, uuid4().hex, uuid4().hex
         reservation: BudgetReservation | None = None
-        settled = False
+        settlement_tokens: int | None = None
         started = time.monotonic()
         self.store.create_run(run_id=run_id, tenant_id=tenant_id, subject_id=subject_id,
                               model_id=model_policy.id, provider=model_policy.provider,
@@ -146,6 +157,7 @@ class RunEngine:
             async for result in self.runtime.stream(messages, config, model_policy.provider, ctx):
                 if result.response.usage.total_tokens > 0:
                     usage = result.response.usage.to_dict()
+                    settlement_tokens = usage["total_tokens"]
                 metadata = dict(result.metadata)
                 metadata.update({"run_id": run_id, "model_id": model_policy.id})
                 yield RuntimeResult(result.response, metadata)
@@ -155,21 +167,22 @@ class RunEngine:
                 # the reservation estimate and explicitly mark usage unknown.
                 accounting_tokens = reservation.reserved_tokens if reservation else 0
                 usage = {"usage_available": False, "accounting_tokens": accounting_tokens}
+                settlement_tokens = accounting_tokens
             if reservation and self.rate_limits:
-                settled = True
-                actual_tokens = usage["total_tokens"] if usage.get("usage_available", True) else usage["accounting_tokens"]
-                self.rate_limits.settle(reservation, actual_tokens=actual_tokens)
+                assert settlement_tokens is not None
+                self.rate_limits.settle(reservation, actual_tokens=settlement_tokens)
             cost = (model_policy.estimate_cost(usage["prompt_tokens"], usage["completion_tokens"])
                     if usage.get("usage_available", True) else 0.0)
             self.store.complete(run_id=run_id, step_id=step_id, call_id=call_id, status="completed",
                                 usage=usage, cost_usd=cost,
                                 latency_ms=round((time.monotonic() - started) * 1000, 2))
         except Exception as exc:
-            if reservation and self.rate_limits and not settled:
-                settled = True
+            if reservation and self.rate_limits:
                 try:
-                    actual_tokens = ((usage or {}).get("total_tokens")
-                                     if usage is not None else reservation.reserved_tokens)
+                    # If any usage was observed, settle to that durable amount;
+                    # otherwise release the full reservation. This is safe to
+                    # retry because the database transition is idempotent.
+                    actual_tokens = settlement_tokens if settlement_tokens is not None else reservation.reserved_tokens
                     self.rate_limits.settle(reservation, actual_tokens=actual_tokens)
                 except Exception:
                     pass

@@ -3,8 +3,7 @@
 Distinct from ``ai_platform.core.capabilities``, which describes model/provider
 *media and feature* metadata (streaming support, vision, tools, etc.).
 
-This module is only about fail-closed permission strings such as
-``model.generate`` and ``model.stream``.
+This module is only about fail-closed permission strings.
 """
 from enum import Enum
 
@@ -16,6 +15,13 @@ class Capability(str, Enum):
     CASE_READ = "case.read"
     CASE_TRIAGE = "case.triage"
     EVIDENCE_ATTACH = "evidence.attach"
+    RESPONSIBILITY_PROPOSE = "responsibility.propose"
+    ACTION_PROPOSE = "action.propose"
+    ACTION_APPROVE = "action.approve"
+    COMMITMENT_CREATE = "commitment.create"
+    COMMITMENT_UPDATE = "commitment.update"
+    OUTCOME_RECORD = "outcome.record"
+    OUTCOME_VERIFY = "outcome.verify"
 
 
 def parse_capability(value: str) -> Capability:

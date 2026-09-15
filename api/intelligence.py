@@ -4,6 +4,7 @@ from __future__ import annotations
 import logging
 import os
 from datetime import datetime
+from functools import lru_cache
 from typing import Optional
 
 from fastapi import APIRouter, Depends, HTTPException, status
@@ -21,7 +22,7 @@ from ai_platform.core.errors import (
 )
 from ai_platform.intelligence.models import CaseAggregate, EvidenceSourceType
 from ai_platform.intelligence.service import CaseNotFoundError, CaseService, EvidenceService, InvalidCaseInput
-from ai_platform.intelligence.store import get_case_repository
+from ai_platform.intelligence.store import CaseStoreConfigurationError, get_case_repository
 from ai_platform.policy.authorization import AuthorizationContext
 from ai_platform.policy.capabilities import Capability
 from ai_platform.policy.errors import PolicyDeniedError
@@ -31,9 +32,24 @@ from api.dependencies import default_model_name, require_auth, require_runtime
 logger = logging.getLogger(__name__)
 
 router = APIRouter(prefix="/api/v1/cases", tags=["cases"])
-_repository = get_case_repository()
-_case_service = CaseService(_repository)
-_evidence_service = EvidenceService(_repository)
+
+
+@lru_cache(maxsize=1)
+def _case_service() -> CaseService:
+    """Defer durable store construction until a case route is actually hit.
+
+    Importing this module must not require SUPABASE_* configuration. On Vercel,
+    get_case_repository() defaults to the Supabase backend when VERCEL=1; doing
+    that at module import made every cold start — including /api/health/live —
+    fail with FUNCTION_INVOCATION_FAILED when the service-role client could not
+    be created.
+    """
+    return CaseService(get_case_repository())
+
+
+@lru_cache(maxsize=1)
+def _evidence_service() -> EvidenceService:
+    return EvidenceService(get_case_repository())
 
 
 class CaseCreateRequest(BaseModel):
@@ -96,6 +112,8 @@ def _raise(exc: Exception) -> HTTPException:
         return HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="Capability denied")
     if isinstance(exc, CaseNotFoundError):
         return HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Case not found")
+    if isinstance(exc, CaseStoreConfigurationError):
+        return HTTPException(status_code=status.HTTP_503_SERVICE_UNAVAILABLE, detail="Case store is not configured")
     if isinstance(exc, (InvalidCaseInput, ValueError)):
         return HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail=str(exc))
     if isinstance(exc, AuthenticationError):
@@ -127,9 +145,9 @@ async def create_case(request: CaseCreateRequest, auth: AuthorizationContext = D
     try:
         # Creation is authorized independently; the response must not silently
         # require case.read as a second capability just to serialize the result.
-        return _aggregate_response(_case_service.create_aggregate(auth, request.summary, request.title))
+        return _aggregate_response(_case_service().create_aggregate(auth, request.summary, request.title))
     except Exception as exc:
-        if not isinstance(exc, (PolicyDeniedError, CaseNotFoundError, InvalidCaseInput, ValueError, ProviderError, HTTPException)):
+        if not isinstance(exc, (PolicyDeniedError, CaseNotFoundError, InvalidCaseInput, ValueError, ProviderError, HTTPException, CaseStoreConfigurationError)):
             _log_unexpected("create", exc)
         raise _raise(exc) from exc
 
@@ -138,9 +156,9 @@ async def create_case(request: CaseCreateRequest, auth: AuthorizationContext = D
 async def list_cases(auth: AuthorizationContext = Depends(require_auth)) -> dict:
     """List only cases belonging to the caller's authorization tenant."""
     try:
-        return {"cases": [_case_response(case) for case in _case_service.list(auth)]}
+        return {"cases": [_case_response(case) for case in _case_service().list(auth)]}
     except Exception as exc:
-        if not isinstance(exc, (PolicyDeniedError, CaseNotFoundError, InvalidCaseInput, ValueError, ProviderError, HTTPException)):
+        if not isinstance(exc, (PolicyDeniedError, CaseNotFoundError, InvalidCaseInput, ValueError, ProviderError, HTTPException, CaseStoreConfigurationError)):
             _log_unexpected("list", exc)
         raise _raise(exc) from exc
 
@@ -148,9 +166,9 @@ async def list_cases(auth: AuthorizationContext = Depends(require_auth)) -> dict
 @router.get("/{case_id}")
 async def get_case(case_id: str, auth: AuthorizationContext = Depends(require_auth)) -> dict:
     try:
-        return _aggregate_response(_case_service.get(auth, case_id))
+        return _aggregate_response(_case_service().get(auth, case_id))
     except Exception as exc:
-        if not isinstance(exc, (PolicyDeniedError, CaseNotFoundError, InvalidCaseInput, ValueError, ProviderError, HTTPException)):
+        if not isinstance(exc, (PolicyDeniedError, CaseNotFoundError, InvalidCaseInput, ValueError, ProviderError, HTTPException, CaseStoreConfigurationError)):
             _log_unexpected("get", exc)
         raise _raise(exc) from exc
 
@@ -161,15 +179,15 @@ async def triage_case(case_id: str, auth: AuthorizationContext = Depends(require
         # Authorize both capabilities before resolving provider configuration or
         # constructing the runtime. A caller without model.generate must receive
         # a deterministic 403 without any provider initialization.
-        _case_service.authorize(auth, Capability.CASE_TRIAGE)
-        _case_service.authorize(auth, Capability.MODEL_GENERATE)
+        _case_service().authorize(auth, Capability.CASE_TRIAGE)
+        _case_service().authorize(auth, Capability.MODEL_GENERATE)
         runtime: AuthorizedModelRuntime = require_runtime()
         model_name = (os.getenv("AI_PLATFORM_TRIAGE_MODEL") or default_model_name()).strip()
-        return _aggregate_response(await _case_service.triage(auth, case_id, runtime, model_name=model_name))
+        return _aggregate_response(await _case_service().triage(auth, case_id, runtime, model_name=model_name))
     except HTTPException:
         raise
     except Exception as exc:
-        if not isinstance(exc, (PolicyDeniedError, CaseNotFoundError, InvalidCaseInput, ValueError, ProviderError)):
+        if not isinstance(exc, (PolicyDeniedError, CaseNotFoundError, InvalidCaseInput, ValueError, ProviderError, CaseStoreConfigurationError)):
             _log_unexpected("triage", exc)
         raise _raise(exc) from exc
 
@@ -178,7 +196,7 @@ async def triage_case(case_id: str, auth: AuthorizationContext = Depends(require
 async def attach_evidence(case_id: str, request: EvidenceAttachRequest,
                           auth: AuthorizationContext = Depends(require_auth)) -> dict:
     try:
-        evidence = _evidence_service.attach(
+        evidence = _evidence_service().attach(
             auth, case_id, body=request.body, source_type=request.source_type,
             source_uri=request.source_uri, note=request.note, assertion_id=request.assertion_id,
         )
@@ -194,6 +212,6 @@ async def attach_evidence(case_id: str, request: EvidenceAttachRequest,
             "created_at": _iso(evidence.created_at),
         }
     except Exception as exc:
-        if not isinstance(exc, (PolicyDeniedError, CaseNotFoundError, InvalidCaseInput, ValueError, ProviderError)):
+        if not isinstance(exc, (PolicyDeniedError, CaseNotFoundError, InvalidCaseInput, ValueError, ProviderError, CaseStoreConfigurationError)):
             _log_unexpected("evidence", exc)
         raise _raise(exc) from exc

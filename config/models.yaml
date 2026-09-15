@@ -8,3 +8,19 @@ models:
     output_cost_per_million: 0.0
     requests_per_minute: 30
     tokens_per_day: 100000
+  gpt-4o-mini:
+    provider: openai-compatible
+    model: gpt-4o-mini
+    max_tokens: 4096
+    input_cost_per_million: 0.0
+    output_cost_per_million: 0.0
+    requests_per_minute: 30
+    tokens_per_day: 100000
+  grok-4.6:
+    provider: openai-compatible
+    model: grok-4.6
+    max_tokens: 4096
+    input_cost_per_million: 0.0
+    output_cost_per_million: 0.0
+    requests_per_minute: 30
+    tokens_per_day: 100000

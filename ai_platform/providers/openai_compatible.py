@@ -108,7 +108,9 @@ class OpenAICompatibleProvider(IModelProvider):
     @staticmethod
     def _response(data: dict, provider_name: str) -> ModelResponse:
         choice = (data.get("choices") or [{}])[0]
-        msg = choice.get("message") or {}
+        # Non-streaming responses use choices[].message; SSE chunks use
+        # choices[].delta.
+        msg = choice.get("message") or choice.get("delta") or {}
         role = msg.get("role", "assistant")
         content = msg.get("content") or ""
         usage = data.get("usage") or {}

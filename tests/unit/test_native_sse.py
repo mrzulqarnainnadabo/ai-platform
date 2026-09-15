@@ -14,8 +14,8 @@ class FakeResponse:
 
 def test_native_sse_stream_normalizes_chunks(monkeypatch):
     lines = [
-        b'data: ' + json.dumps({"id":"1","model":"m","choices":[{"message":{"role":"assistant","content":"A"},"finish_reason":None}]}).encode() + b'\n',
-        b'data: ' + json.dumps({"id":"1","model":"m","choices":[{"message":{"role":"assistant","content":"B"},"finish_reason":"stop"}]}).encode() + b'\n',
+        b'data: ' + json.dumps({"id":"1","model":"m","choices":[{"delta":{"role":"assistant","content":"A"},"finish_reason":None}]}).encode() + b'\n',
+        b'data: ' + json.dumps({"id":"1","model":"m","choices":[{"delta":{"content":"B"},"finish_reason":"stop"}]}).encode() + b'\n',
         b'data: [DONE]\n',
     ]
     monkeypatch.setattr(openai_compatible.urllib.request, "urlopen", lambda *a, **k: FakeResponse(lines))

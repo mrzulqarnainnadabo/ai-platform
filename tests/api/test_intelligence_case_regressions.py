@@ -15,6 +15,7 @@ from ai_platform.core.errors import (
     ProviderTimeoutError,
     ProviderUnavailableError,
     RateLimitError,
+    InvalidRequestError,
 )
 from ai_platform.intelligence.models import AuditEvent, EvidenceSourceType
 from ai_platform.intelligence.repository import InMemoryCaseRepository
@@ -91,14 +92,14 @@ def test_evidence_requires_an_assertion_from_the_same_case():
     assert repository.list_evidence(first_case.id) == []
 
 
-def test_triage_fails_before_model_execution_for_unknown_provider():
+def test_triage_fails_before_model_execution_for_unknown_model_policy():
     repository = InMemoryCaseRepository()
     service = CaseService(repository)
     auth = auth_context(Capability.CASE_CREATE, Capability.CASE_TRIAGE, Capability.MODEL_GENERATE)
     case = service.create(auth, "triage this case")
     runtime = AuthorizedModelRuntime(ModelRuntime(ProviderRegistry()))
 
-    with pytest.raises(ValueError, match="Unknown provider"):
+    with pytest.raises(InvalidRequestError, match="Unknown model"):
         asyncio.run(service.triage(auth, case.id, runtime, model_name="demo", provider_name="provider-that-is-not-registered"))
 
     stored = repository.get_case(case.id)

@@ -50,17 +50,23 @@ class AuthorizedModelRuntime:
             if policy.model == config.model_name: return policy
         return None
 
+    def _governance_for(self, config: ModelConfig, explicit: Optional[ModelPolicy]) -> ModelPolicy:
+        if self.run_engine is None:
+            raise RuntimeError("Governance runtime is not configured")
+        policy = self._policy_for(config, explicit)
+        if policy is None:
+            raise PolicyDeniedError("No model policy is configured for this model")
+        return policy
+
     async def generate(self, auth: AuthorizationContext, messages: List[Message], config: ModelConfig,
                        provider_name: str, context: Optional[ExecutionContext] = None,
                        approval: Optional[HumanApproval] = None, approval_id: Optional[str] = None,
                        model_policy: Optional[ModelPolicy] = None):
         self._validate_tenant(auth, context)
         self._authorize(auth, Capability.MODEL_GENERATE.value, approval, approval_id)
-        resolved_policy = self._policy_for(config, model_policy)
-        if self.run_engine and resolved_policy:
-            return await self.run_engine.generate(tenant_id=auth.identity.tenant_id, subject_id=auth.identity.subject,
-                                                  model_policy=resolved_policy, messages=messages, config=config, context=context)
-        return await self.runtime.generate(messages, config, provider_name, context)
+        resolved_policy = self._governance_for(config, model_policy)
+        return await self.run_engine.generate(tenant_id=auth.identity.tenant_id, subject_id=auth.identity.subject,
+                                              model_policy=resolved_policy, messages=messages, config=config, context=context)
 
     async def stream(self, auth: AuthorizationContext, messages: List[Message], config: ModelConfig,
                      provider_name: str, context: Optional[ExecutionContext] = None,
@@ -68,5 +74,7 @@ class AuthorizedModelRuntime:
                      model_policy: Optional[ModelPolicy] = None) -> AsyncGenerator[RuntimeResult, None]:
         self._validate_tenant(auth, context)
         self._authorize(auth, Capability.MODEL_STREAM.value, approval, approval_id)
-        async for result in self.runtime.stream(messages, config, provider_name, context):
+        resolved_policy = self._governance_for(config, model_policy)
+        async for result in self.run_engine.stream(tenant_id=auth.identity.tenant_id, subject_id=auth.identity.subject,
+                                                   model_policy=resolved_policy, messages=messages, config=config, context=context):
             yield result

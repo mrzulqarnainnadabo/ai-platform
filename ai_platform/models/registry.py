@@ -14,6 +14,7 @@ from typing import Any, Mapping
 import yaml
 
 from ai_platform.core.config import ModelConfig
+from ai_platform.core.messages import ProviderOptions
 from ai_platform.core.errors import InvalidRequestError
 
 
@@ -43,7 +44,7 @@ class ModelPolicy:
             tools=overrides.pop("tools", []),
             tool_choice=overrides.pop("tool_choice", "auto"),
             timeout_seconds=overrides.pop("timeout_seconds", 60.0),
-            provider_options=overrides.pop("provider_options", None),
+            provider_options=overrides.pop("provider_options", None) or ProviderOptions(),
         )
 
     def estimate_cost(self, prompt_tokens: int, completion_tokens: int) -> float:

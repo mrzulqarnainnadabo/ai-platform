@@ -7,7 +7,7 @@ from __future__ import annotations
 
 import time
 from dataclasses import dataclass
-from typing import Any, List, Optional
+from typing import Any, AsyncGenerator, List, Optional
 from uuid import uuid4
 
 from ai_platform.core.config import ModelConfig
@@ -102,6 +102,51 @@ class RunEngine:
             metadata = dict(result.metadata)
             metadata.update({"run_id": run_id, "model_id": model_policy.id, "cost_usd": cost})
             return RunResult(result.response, metadata, run_id)
+        except Exception as exc:
+            if reservation and self.rate_limits:
+                try:
+                    self.rate_limits.settle(reservation, actual_tokens=0)
+                except Exception:
+                    pass
+            self.store.complete(run_id=run_id, step_id=step_id, call_id=call_id, status="failed",
+                                usage={}, cost_usd=0.0,
+                                latency_ms=round((time.monotonic() - started) * 1000, 2),
+                                error_type=type(exc).__name__)
+            raise
+
+    async def stream(self, *, tenant_id: str, subject_id: str, model_policy: ModelPolicy,
+                     messages: List[Message], config: ModelConfig,
+                     context: Optional[ExecutionContext] = None) -> AsyncGenerator[RuntimeResult, None]:
+        """Stream provider results inside the same durable governance envelope."""
+        ctx = context or ExecutionContext(tenant_id=tenant_id, timeout_seconds=config.timeout_seconds)
+        run_id, step_id, call_id = uuid4().hex, uuid4().hex, uuid4().hex
+        reservation: BudgetReservation | None = None
+        started = time.monotonic()
+        self.store.create_run(run_id=run_id, tenant_id=tenant_id, subject_id=subject_id,
+                              model_id=model_policy.id, provider=model_policy.provider,
+                              model=model_policy.model, trace_id=ctx.trace_id)
+        self.store.create_step(step_id=step_id, run_id=run_id, step_type="model")
+        self.store.create_provider_call(call_id=call_id, run_id=run_id, step_id=step_id,
+                                        provider=model_policy.provider, model=model_policy.model)
+        try:
+            if self.rate_limits:
+                reservation = self.rate_limits.reserve(
+                    tenant_id=tenant_id, subject_id=subject_id, model_id=model_policy.id,
+                    requests_per_minute=model_policy.requests_per_minute,
+                    tokens_per_day=model_policy.tokens_per_day,
+                    estimated_tokens=self._estimate_tokens(messages, config.max_tokens or model_policy.max_tokens),
+                    request_id=run_id,
+                )
+            async for result in self.runtime.stream(messages, config, model_policy.provider, ctx):
+                metadata = dict(result.metadata)
+                metadata.update({"run_id": run_id, "model_id": model_policy.id})
+                yield RuntimeResult(result.response, metadata)
+            usage = {"prompt_tokens": 0, "completion_tokens": 0, "total_tokens": 0}
+            if reservation and self.rate_limits:
+                self.rate_limits.settle(reservation, actual_tokens=usage["total_tokens"])
+            self.store.complete(run_id=run_id, step_id=step_id, call_id=call_id, status="completed",
+                                usage=usage, cost_usd=0.0,
+                                latency_ms=round((time.monotonic() - started) * 1000, 2))
         except Exception as exc:
             if reservation and self.rate_limits:
                 try:

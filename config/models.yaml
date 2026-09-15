@@ -1,9 +1,8 @@
-# Public model aliases exposed to platform clients.
-# Provider credentials and upstream model identifiers stay server-side.
+# Client-visible ids are stable aliases. Change upstream model ids here, not in client requests.
 models:
   fast-general:
     provider: openai-compatible
-    model: ${AI_PLATFORM_FAST_GENERAL_MODEL}
+    model: gpt-4o-mini
     max_tokens: 4096
     input_cost_per_million: 0.0
     output_cost_per_million: 0.0
@@ -11,7 +10,7 @@ models:
     tokens_per_day: 100000
   local-general:
     provider: openai-compatible
-    model: ${AI_PLATFORM_LOCAL_GENERAL_MODEL}
+    model: llama3.1:8b
     max_tokens: 4096
     input_cost_per_million: 0.0
     output_cost_per_million: 0.0

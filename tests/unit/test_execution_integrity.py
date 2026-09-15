@@ -1,4 +1,5 @@
 import asyncio
+from pathlib import Path
 
 from ai_platform.core import Message, ModelConfig, Role
 from ai_platform.core.response import FinishReason, ModelResponse, TokenUsage
@@ -120,7 +121,8 @@ def test_stream_retries_settlement_after_transport_failure():
 
 
 def test_run_engine_does_not_depend_on_process_local_settled_flag():
-    source = open("ai_platform/runtime/run_engine.py", encoding="utf-8").read()
+    root = Path(__file__).resolve().parents[2]
+    source = (root / "ai_platform" / "runtime" / "run_engine.py").read_text(encoding="utf-8")
     assert "settled = True" not in source
     assert "settled = False" not in source
     assert "status=\"completed\"" in source

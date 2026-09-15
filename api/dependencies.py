@@ -1,22 +1,4 @@
-"""Application dependencies for the Vercel/FastAPI host.
-
-Everything here is an application boundary. The provider-neutral platform package
-must not import FastAPI, Supabase, or HTTP concerns.
-
-Required production environment (server-side only):
-  SUPABASE_URL, SUPABASE_PUBLISHABLE_KEY
-  SUPABASE_SERVICE_ROLE_KEY when INTEL_CASE_STORE=supabase
-  OPENAI_API_KEY and/or XAI_API_KEY (for non-loopback providers)
-  INTEL_CASE_STORE=supabase on Vercel for durable intelligence case storage
-
-Optional:
-  OPENAI_BASE_URL, AI_PLATFORM_PROVIDER, AI_PLATFORM_PROVIDER_TIMEOUT_SECONDS,
-  AI_PLATFORM_TENANT_CLAIM, AI_PLATFORM_PERMISSIONS_CLAIM
-  For Ollama: AI_PLATFORM_PROVIDER=ollama, OPENAI_BASE_URL=http://127.0.0.1:11434/v1
-
-Do not accept client-supplied tenant_id or permissions — only verified JWT claims.
-"""
-
+"""FastAPI dependencies for authentication, model policy and durable runtime."""
 from __future__ import annotations
 
 import os
@@ -27,51 +9,36 @@ from urllib.parse import urlparse
 from fastapi import Depends, HTTPException, status
 from fastapi.security import HTTPAuthorizationCredentials, HTTPBearer
 
-from ai_platform.integrations.supabase_auth import (
-    SupabaseAuthContextProvider,
-    SupabaseAuthenticationError,
-    SupabaseAuthConfigurationError,
-)
+from ai_platform.integrations.supabase_auth import SupabaseAuthContextProvider, SupabaseAuthenticationError, SupabaseAuthConfigurationError
+from ai_platform.intelligence.store import get_supabase_server_client
+from ai_platform.models.registry import ModelRegistry
 from ai_platform.policy.authorization import AuthorizationContext
-from ai_platform.policy.capabilities import Capability
+from ai_platform.policy.rate_limits import RateLimitPolicy, SupabaseRateLimitStore
 from ai_platform.runtime.authorized import AuthorizedModelRuntime
 from ai_platform.runtime.model_runtime import ModelRuntime
 from ai_platform.runtime.registry import ProviderRegistry
+from ai_platform.runtime.run_engine import RunEngine, SupabaseRunStore
 
 security = HTTPBearer(auto_error=False)
 
 
 def _is_loopback_base_url(value: str) -> bool:
-    """Match the same exact loopback hosts accepted by shared URL validation."""
     parsed = urlparse(value)
     return parsed.scheme in {"http", "https"} and parsed.hostname in {"localhost", "127.0.0.1", "::1"}
 
 
 def _resolve_cloud_provider_credentials() -> tuple[str, str]:
-    """Resolve a cloud-compatible endpoint and matching credential.
-
-    When both OpenAI and xAI keys exist, the endpoint determines which credential
-    is preferred. This prevents an xAI deployment from accidentally sending an
-    OpenAI key to the xAI endpoint (or vice versa).
-    """
     base_url = (os.getenv("OPENAI_BASE_URL") or "https://api.openai.com/v1").strip()
-    normalized_base_url = base_url.rstrip("/").lower()
-
-    if normalized_base_url == "https://api.x.ai/v1":
-        api_key = (os.getenv("XAI_API_KEY") or os.getenv("OPENAI_API_KEY") or "").strip()
+    normalized = base_url.rstrip("/").lower()
+    if normalized == "https://api.x.ai/v1":
+        key = (os.getenv("XAI_API_KEY") or os.getenv("OPENAI_API_KEY") or "").strip()
     else:
-        api_key = (os.getenv("OPENAI_API_KEY") or os.getenv("XAI_API_KEY") or "").strip()
-
-    return base_url, api_key
+        key = (os.getenv("OPENAI_API_KEY") or os.getenv("XAI_API_KEY") or "").strip()
+    return base_url, key
 
 
 def default_model_name() -> str:
-    """Return a provider-compatible default model for browser and triage callers."""
-    configured = (os.getenv("AI_PLATFORM_DEFAULT_MODEL") or "").strip()
-    if configured:
-        return configured
-    base_url = (os.getenv("OPENAI_BASE_URL") or "https://api.openai.com/v1").strip().rstrip("/").lower()
-    return "grok-4.6" if base_url == "https://api.x.ai/v1" else "gpt-4o-mini"
+    return (os.getenv("AI_PLATFORM_DEFAULT_MODEL") or "fast-general").strip()
 
 
 @lru_cache(maxsize=1)
@@ -79,15 +46,17 @@ def get_auth_provider() -> SupabaseAuthContextProvider:
     return SupabaseAuthContextProvider.from_environment()
 
 
-def require_auth(
-    credentials: Annotated[HTTPAuthorizationCredentials | None, Depends(security)],
-) -> AuthorizationContext:
+@lru_cache(maxsize=1)
+def get_model_registry() -> ModelRegistry:
+    return ModelRegistry()
+
+
+def require_auth(credentials: Annotated[HTTPAuthorizationCredentials | None, Depends(security)]) -> AuthorizationContext:
     if credentials is None or credentials.scheme.lower() != "bearer":
         raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="Authentication required")
     try:
         return get_auth_provider().get_context(credentials.credentials)
     except (SupabaseAuthenticationError, SupabaseAuthConfigurationError) as exc:
-        # Do not disclose JWT, Supabase SDK, or configuration details to callers.
         raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="Authentication failed") from exc
 
 
@@ -95,46 +64,38 @@ def require_auth(
 def get_authorized_runtime() -> AuthorizedModelRuntime:
     registry = ProviderRegistry()
     provider_name = os.getenv("AI_PLATFORM_PROVIDER", "openai-compatible").strip().lower()
-    # OpenAI, xAI, and Ollama all use the OpenAI-compatible wire format.
-    if provider_name in ("openai-compatible", "openai", "xai", "ollama"):
-        from ai_platform.providers.openai_compatible import OpenAICompatibleProvider
-
-        if provider_name == "ollama":
-            # Ollama OpenAI-compat endpoint (loopback only in production hosts).
-            base_url = (
-                os.getenv("OPENAI_BASE_URL")
-                or os.getenv("OLLAMA_BASE_URL")
-                or "http://127.0.0.1:11434/v1"
-            ).strip()
-            # Ollama ignores the key but some clients send a placeholder.
-            api_key = (os.getenv("OLLAMA_API_KEY") or os.getenv("OPENAI_API_KEY") or "ollama").strip()
-        else:
-            base_url, api_key = _resolve_cloud_provider_credentials()
-
-        is_local = _is_loopback_base_url(base_url)
-        if not api_key and not is_local:
-            raise RuntimeError("OPENAI_API_KEY or XAI_API_KEY is required for a non-local provider")
-        if provider_name == "ollama" and not is_local:
-            raise RuntimeError("Ollama provider is restricted to loopback base URLs")
-
-        registry.register(
-            OpenAICompatibleProvider(
-                api_key=api_key or None,
-                base_url=base_url,
-                timeout_seconds=float(os.getenv("AI_PLATFORM_PROVIDER_TIMEOUT_SECONDS", "120")),
-            )
-        )
-    else:
+    if provider_name not in ("openai-compatible", "openai", "xai", "ollama"):
         raise RuntimeError("No configured provider")
-    return AuthorizedModelRuntime(ModelRuntime(registry))
+
+    from ai_platform.providers.openai_compatible import OpenAICompatibleProvider
+    if provider_name == "ollama":
+        base_url = (os.getenv("OPENAI_BASE_URL") or os.getenv("OLLAMA_BASE_URL") or "http://127.0.0.1:11434/v1").strip()
+        api_key = (os.getenv("OLLAMA_API_KEY") or os.getenv("OPENAI_API_KEY") or "ollama").strip()
+    else:
+        base_url, api_key = _resolve_cloud_provider_credentials()
+    is_local = _is_loopback_base_url(base_url)
+    if not api_key and not is_local: raise RuntimeError("Provider API key is required")
+    if provider_name == "ollama" and not is_local: raise RuntimeError("Ollama provider is restricted to loopback URLs")
+
+    registry.register(OpenAICompatibleProvider(api_key=api_key or None, base_url=base_url,
+                                               timeout_seconds=float(os.getenv("AI_PLATFORM_PROVIDER_TIMEOUT_SECONDS", "120"))))
+    model_runtime = ModelRuntime(registry)
+
+    # Production Vercel uses the server-only Supabase client for durable runs and budgets.
+    run_engine = None
+    try:
+        client = get_supabase_server_client()
+        rate_limits = RateLimitPolicy(SupabaseRateLimitStore(client))
+        run_engine = RunEngine(model_runtime, SupabaseRunStore(client), rate_limits)
+    except Exception:
+        if os.getenv("VERCEL") == "1":
+            raise
+
+    return AuthorizedModelRuntime(model_runtime, run_engine=run_engine)
 
 
 def require_runtime() -> AuthorizedModelRuntime:
     try:
         return get_authorized_runtime()
     except Exception as exc:
-        # Provider configuration is intentionally not exposed through the API.
-        raise HTTPException(
-            status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
-            detail="Model provider is not configured",
-        ) from exc
+        raise HTTPException(status_code=status.HTTP_503_SERVICE_UNAVAILABLE, detail="Model provider is not configured") from exc

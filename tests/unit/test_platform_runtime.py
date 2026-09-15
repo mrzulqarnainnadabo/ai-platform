@@ -105,7 +105,7 @@ def test_streaming_usage_and_lifecycle_are_governed_and_settled_once():
     assert completion["cost_usd"] > 0
 
 
-def test_failed_stream_settles_reservation_once_as_zero():
+def test_failed_stream_after_usage_chunk_settles_actual_usage_once():
     class FailingRuntime:
         async def stream(self, *args, **kwargs):
             yield RuntimeResult(ModelResponse(Message(Role.ASSISTANT, "partial"), FinishReason.STOP,
@@ -124,6 +124,29 @@ def test_failed_stream_settles_reservation_once_as_zero():
         asyncio.run(run())
     assert len(limits.settlements) == 1
     assert limits.settlements[0][1] == 19
+    assert store.events[-1][1]["status"] == "failed"
+
+
+def test_failed_stream_before_usage_chunk_settles_reserved_estimate_once():
+    class FailingBeforeUsageRuntime:
+        async def stream(self, *args, **kwargs):
+            yield RuntimeResult(ModelResponse(Message(Role.ASSISTANT, "partial"), FinishReason.STOP,
+                TokenUsage(), "mock", "mock"))
+            raise RuntimeError("stream failed before usage")
+
+    store = RecordingRunStore(); limits = RecordingRateLimits()
+    engine = RunEngine(FailingBeforeUsageRuntime(), store, limits)
+    policy = ModelPolicy("mock", "mock", "mock", 4096)
+
+    async def run():
+        return [x async for x in engine.stream(tenant_id="tenant", subject_id="subject", model_policy=policy,
+                                                messages=[Message(Role.USER, "hi")], config=ModelConfig("mock"))]
+
+    with pytest.raises(RuntimeError, match="before usage"):
+        asyncio.run(run())
+    reserved = limits.reservations[0]["estimated_tokens"]
+    assert len(limits.settlements) == 1
+    assert limits.settlements[0][1] == reserved
     assert store.events[-1][1]["status"] == "failed"
 
 

@@ -168,7 +168,9 @@ class RunEngine:
             if reservation and self.rate_limits and not settled:
                 settled = True
                 try:
-                    self.rate_limits.settle(reservation, actual_tokens=(usage or {}).get("total_tokens", 0))
+                    actual_tokens = ((usage or {}).get("total_tokens")
+                                     if usage is not None else reservation.reserved_tokens)
+                    self.rate_limits.settle(reservation, actual_tokens=actual_tokens)
                 except Exception:
                     pass
             self.store.complete(run_id=run_id, step_id=step_id, call_id=call_id, status="failed",

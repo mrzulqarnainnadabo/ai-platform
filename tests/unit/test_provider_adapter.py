@@ -4,6 +4,7 @@ import json
 import pytest
 
 from ai_platform.core import ModelConfig, Message, Role
+from ai_platform.core.messages import ProviderOptions
 from ai_platform.providers import OpenAICompatibleProvider
 
 
@@ -33,32 +34,17 @@ def test_native_sse_path_is_not_generate_fallback():
     assert "generate_fallback" not in source
 
 
-def test_extra_params_cannot_override_request_envelope():
+def test_provider_options_are_validated_and_serialized():
     provider = FakeProvider(api_key="test")
-    for key, value in {
-        "model": "attacker-selected-model",
-        "messages": [],
-        "stream": True,
-        "temperature": 0,
-        "top_p": 0,
-        "max_tokens": 1,
-        "stop": ["stop"],
-        "response_format": {"type": "text"},
-        "tools": [],
-        "tool_choice": "none",
-    }.items():
-        config = ModelConfig("test", extra_params={key: value})
-        with pytest.raises(ValueError, match="extra_params cannot override request fields"):
-            provider._payload([Message(Role.USER, "hello")], config)
-
-
-def test_non_reserved_extra_params_remain_provider_specific():
-    provider = FakeProvider(api_key="test")
-    payload = provider._payload(
-        [Message(Role.USER, "hello")],
-        ModelConfig("test", extra_params={"reasoning_effort": "low"}),
-    )
+    config = ModelConfig("test", provider_options=ProviderOptions(reasoning_effort="low", seed=7))
+    payload = provider._payload([Message(Role.USER, "hello")], config)
     body = json.loads(payload)
     assert body["model"] == "test"
     assert body["stream"] is False
     assert body["reasoning_effort"] == "low"
+    assert body["seed"] == 7
+
+
+def test_provider_options_reject_unknown_fields():
+    with pytest.raises(ValueError):
+        ProviderOptions.model_validate({"attacker_selected_model": "evil"})

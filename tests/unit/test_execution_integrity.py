@@ -27,7 +27,7 @@ class RecordingRunStore:
 
 
 class RetryingRateLimits:
-    def __init__(self, failures=1):
+    def __init__(self, failures=0):
         self.failures = failures
         self.reservations = []
         self.settlements = []
@@ -75,6 +75,24 @@ class SuccessfulRuntime:
         )
 
 
+class CancellationRuntime:
+    async def generate(self, *args, **kwargs):
+        raise AssertionError("generate should not be called")
+
+    async def stream(self, *args, **kwargs):
+        yield RuntimeResult(
+            ModelResponse(
+                Message(Role.ASSISTANT, "chunk"),
+                FinishReason.NONE,
+                TokenUsage(12, 7, 19),
+                "mock",
+                "mock",
+            ),
+            {},
+        )
+        raise asyncio.CancelledError()
+
+
 def test_generate_retries_settlement_after_transport_failure():
     store = RecordingRunStore()
     limits = RetryingRateLimits(failures=1)
@@ -118,6 +136,29 @@ def test_stream_retries_settlement_after_transport_failure():
     assert results
     assert [tokens for _, tokens in limits.settlements] == [19, 19]
     assert store.events[-1][1]["status"] == "completed"
+
+
+def test_cancelled_stream_settles_conservatively_before_propagating_cancellation():
+    store = RecordingRunStore()
+    limits = RetryingRateLimits()
+    engine = RunEngine(CancellationRuntime(), store, limits)
+    policy = ModelPolicy("mock", "mock", "mock", 4096)
+
+    async def run():
+        with pytest.raises(asyncio.CancelledError):
+            async for _ in engine.stream(
+                tenant_id="tenant",
+                subject_id="subject",
+                model_policy=policy,
+                messages=[Message(Role.USER, "hi")],
+                config=ModelConfig("mock"),
+            ):
+                pass
+
+    asyncio.run(run())
+    assert len(limits.settlements) == 1
+    assert limits.settlements[0][1] == limits.reservations[0]["estimated_tokens"]
+    assert store.events[-1][1]["status"] == "failed"
 
 
 def test_run_engine_does_not_depend_on_process_local_settled_flag():

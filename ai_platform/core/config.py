@@ -96,6 +96,11 @@ class ModelConfig:
         if not isinstance(self.timeout_seconds, (int, float)) or self.timeout_seconds <= 0: raise ValueError("timeout_seconds must be positive")
         if not isinstance(self.provider_options, ProviderOptions): self.provider_options = ProviderOptions.model_validate(self.provider_options)
 
+    @property
+    def extra_params(self) -> Dict[str, Any]:
+        """Read-only compatibility view for existing provider adapters."""
+        return self.provider_options.to_dict()
+
     def to_dict(self) -> Dict[str, Any]:
         result = {"model_name": self.model_name, "temperature": self.temperature, "top_p": self.top_p,
                   "max_tokens": self.max_tokens, "stop_sequences": self.stop_sequences, "tool_choice": self.tool_choice,

@@ -2,7 +2,7 @@ from typing import AsyncGenerator, List, Optional
 from ai_platform.core.config import ModelConfig
 from ai_platform.core.context import ExecutionContext
 from ai_platform.core.messages import Message
-from ai_platform.models.registry import ModelPolicy
+from ai_platform.models.registry import ModelPolicy, ModelRegistry
 from .model_runtime import ModelRuntime, RuntimeResult
 from .run_engine import RunEngine
 from ai_platform.policy.approval import HumanApproval
@@ -16,10 +16,11 @@ from ai_platform.policy.evaluator import SimplePermissionEvaluator
 class AuthorizedModelRuntime:
     """The application-facing model boundary: AuthZ -> budgets -> durable run -> provider."""
     def __init__(self, runtime: ModelRuntime, evaluator: Optional[SimplePermissionEvaluator] = None,
-                 run_engine: Optional[RunEngine] = None) -> None:
+                 run_engine: Optional[RunEngine] = None, model_registry: Optional[ModelRegistry] = None) -> None:
         self.runtime = runtime
         self.evaluator = evaluator or SimplePermissionEvaluator()
         self.run_engine = run_engine
+        self.model_registry = model_registry or ModelRegistry()
 
     def _authorize(self, auth: AuthorizationContext, capability: str, approval: Optional[HumanApproval]) -> Capability:
         try: cap = parse_capability(capability)
@@ -35,12 +36,24 @@ class AuthorizedModelRuntime:
         if context is not None and context.tenant_id != auth.identity.tenant_id:
             raise PolicyDeniedError("Authorization tenant does not match execution tenant")
 
+    def _policy_for(self, config: ModelConfig, explicit: Optional[ModelPolicy]) -> Optional[ModelPolicy]:
+        if explicit: return explicit
+        attached = getattr(config, "_model_policy", None)
+        if attached: return attached
+        # Internal server callers may still use the upstream model identifier.
+        # It is accepted only when that identifier is explicitly present in the
+        # server catalog; arbitrary client model names never reach this path.
+        for policy in self.model_registry.all():
+            if policy.model == config.model_name:
+                return policy
+        return None
+
     async def generate(self, auth: AuthorizationContext, messages: List[Message], config: ModelConfig,
                        provider_name: str, context: Optional[ExecutionContext] = None,
                        approval: Optional[HumanApproval] = None, model_policy: Optional[ModelPolicy] = None):
         self._validate_tenant(auth, context)
         self._authorize(auth, Capability.MODEL_GENERATE.value, approval)
-        resolved_policy = model_policy or getattr(config, "_model_policy", None)
+        resolved_policy = self._policy_for(config, model_policy)
         if self.run_engine and resolved_policy:
             return await self.run_engine.generate(tenant_id=auth.identity.tenant_id, subject_id=auth.identity.subject,
                                                   model_policy=resolved_policy, messages=messages, config=config, context=context)

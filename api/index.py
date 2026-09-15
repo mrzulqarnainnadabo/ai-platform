@@ -2,8 +2,11 @@
 from __future__ import annotations
 
 import uuid
+from http.cookies import SimpleCookie
+from typing import Any
 
-from fastapi import Request, Response
+from fastapi import Response
+from starlette.datastructures import MutableHeaders
 
 from api.analytics import capture
 from api.original_index import app, handler
@@ -13,63 +16,98 @@ from api.cases_auth_frontend import cases_auth_page
 app.include_router(intelligence_router)
 
 
-@app.middleware("http")
-async def product_analytics(request: Request, call_next):
-    """Capture safe workflow milestones without collecting case or evidence content."""
-    distinct_id = request.cookies.get("ai_platform_analytics_id") or str(uuid.uuid4())
-    path = request.url.path
-    method = request.method
-    event: str | None = None
-    properties: dict[str, object] = {"http_method": method}
+class ProductAnalyticsMiddleware:
+    """Secret-safe analytics middleware implemented as pure ASGI.
 
-    if path == "/app/cases" and method == "GET":
-        event = "case_workspace_viewed"
-    elif path == "/api/v1/cases" and method == "GET":
-        event = "case_workspace_viewed"
-    elif path == "/api/v1/cases" and method == "POST":
-        event = "case_created"
-    elif path.startswith("/api/v1/cases/") and path.endswith("/triage") and method == "POST":
-        event = "case_triage_started"
-    elif path.startswith("/api/v1/cases/") and path.endswith("/evidence") and method == "POST":
-        event = "evidence_added"
-    elif path.startswith("/api/v1/cases/") and method == "GET":
-        event = "case_opened"
+    The previous implementation used Starlette BaseHTTPMiddleware around the
+    entire application. Pure ASGI middleware preserves streaming semantics and
+    avoids an additional response-wrapper layer around StreamingResponse.
+    """
 
-    try:
-        response = await call_next(request)
-    except Exception:
-        capture("api_error", distinct_id, {**properties, "error_class": "unhandled_exception"})
-        raise
+    def __init__(self, app: Any) -> None:
+        self.app = app
 
-    if event:
-        if event == "case_triage_started":
-            capture(event, distinct_id, properties)
-            capture(
-                "case_triage_completed",
-                distinct_id,
-                {**properties, "success": 200 <= response.status_code < 300},
-            )
-        elif event == "case_created":
-            capture(event, distinct_id, {**properties, "success": 200 <= response.status_code < 300})
-        elif event == "evidence_added":
-            capture(event, distinct_id, {**properties, "success": 200 <= response.status_code < 300})
-        else:
-            capture(event, distinct_id, properties)
+    @staticmethod
+    def _analytics_id(headers: list[tuple[bytes, bytes]]) -> str:
+        cookie_header = next((value for key, value in headers if key.lower() == b"cookie"), b"")
+        cookies = SimpleCookie()
+        try:
+            cookies.load(cookie_header.decode("latin-1"))
+            existing = cookies.get("ai_platform_analytics_id")
+            if existing and existing.value:
+                return existing.value
+        except Exception:
+            pass
+        return str(uuid.uuid4())
 
-    if response.status_code == 403:
-        capture("authorization_denied", distinct_id, {**properties, "status_code": 403})
-    elif response.status_code >= 500:
-        capture("api_error", distinct_id, {**properties, "status_code": response.status_code})
+    @staticmethod
+    def _event_for(path: str, method: str) -> str | None:
+        if path == "/app/cases" and method == "GET":
+            return "case_workspace_viewed"
+        if path == "/api/v1/cases" and method == "GET":
+            return "case_workspace_viewed"
+        if path == "/api/v1/cases" and method == "POST":
+            return "case_created"
+        if path.startswith("/api/v1/cases/") and path.endswith("/triage") and method == "POST":
+            return "case_triage_started"
+        if path.startswith("/api/v1/cases/") and path.endswith("/evidence") and method == "POST":
+            return "evidence_added"
+        if path.startswith("/api/v1/cases/") and method == "GET":
+            return "case_opened"
+        return None
 
-    response.set_cookie(
-        "ai_platform_analytics_id",
-        distinct_id,
-        max_age=60 * 60 * 24 * 365,
-        httponly=True,
-        secure=True,
-        samesite="lax",
-    )
-    return response
+    async def __call__(self, scope: dict, receive: Any, send: Any) -> None:
+        if scope.get("type") != "http":
+            await self.app(scope, receive, send)
+            return
+
+        path = scope.get("path", "")
+        method = scope.get("method", "GET")
+        headers = scope.get("headers", [])
+        distinct_id = self._analytics_id(headers)
+        event = self._event_for(path, method)
+        properties: dict[str, object] = {"http_method": method}
+        response_status: int | None = None
+
+        async def send_wrapper(message: dict) -> None:
+            nonlocal response_status
+            if message.get("type") == "http.response.start":
+                response_status = int(message.get("status", 500))
+                MutableHeaders(scope=message).append(
+                    "set-cookie",
+                    f"ai_platform_analytics_id={distinct_id}; Max-Age={60 * 60 * 24 * 365}; Path=/; HttpOnly; Secure; SameSite=Lax",
+                )
+
+                if event:
+                    if event == "case_triage_started":
+                        capture(event, distinct_id, properties)
+                        capture(
+                            "case_triage_completed",
+                            distinct_id,
+                            {**properties, "success": 200 <= response_status < 300},
+                        )
+                    elif event in {"case_created", "evidence_added"}:
+                        capture(event, distinct_id, {**properties, "success": 200 <= response_status < 300})
+                    else:
+                        capture(event, distinct_id, properties)
+
+                if response_status == 403:
+                    capture("authorization_denied", distinct_id, {**properties, "status_code": 403})
+                elif response_status >= 500:
+                    capture("api_error", distinct_id, {**properties, "status_code": response_status})
+
+            await send(message)
+
+        try:
+            await self.app(scope, receive, send_wrapper)
+        except Exception:
+            capture("api_error", distinct_id, {**properties, "error_class": "unhandled_exception"})
+            raise
+
+
+# Pure ASGI middleware keeps StreamingResponse body frames on the native ASGI
+# path instead of wrapping them in BaseHTTPMiddleware's response channel.
+app.add_middleware(ProductAnalyticsMiddleware)
 
 
 # The case workspace is a browser shell only; authentication and authorization

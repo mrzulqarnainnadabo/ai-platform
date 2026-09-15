@@ -5,9 +5,10 @@ provider call and cost record in Supabase and settles the usage reservation.
 """
 from __future__ import annotations
 
+import asyncio
 import time
 from dataclasses import dataclass
-from typing import Any, AsyncGenerator, List, Optional
+from typing import AsyncGenerator, List, Optional
 from uuid import uuid4
 
 from ai_platform.core.config import ModelConfig
@@ -27,7 +28,7 @@ class RunResult:
 
 
 class SupabaseRunStore:
-    def __init__(self, client: Any) -> None:
+    def __init__(self, client):
         self.client = client
 
     def create_run(self, *, run_id: str, tenant_id: str, subject_id: str, model_id: str, provider: str, model: str, trace_id: str) -> None:
@@ -190,7 +191,7 @@ class RunEngine:
             self.store.complete(run_id=run_id, step_id=step_id, call_id=call_id, status="completed",
                                 usage=usage, cost_usd=cost,
                                 latency_ms=round((time.monotonic() - started) * 1000, 2))
-        except Exception as exc:
+        except (Exception, asyncio.CancelledError) as exc:
             if reservation and self.rate_limits:
                 try:
                     actual_tokens = settlement_tokens if settlement_tokens is not None else reservation.reserved_tokens

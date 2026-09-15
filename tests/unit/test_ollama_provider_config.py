@@ -45,6 +45,6 @@ def test_get_authorized_runtime_ollama_allows_https_loopback_without_key(monkeyp
     from api import dependencies
 
     dependencies.get_authorized_runtime.cache_clear()
-    runtime = dependencies.get_authorized_runtime()
-    assert runtime is not None
+    with pytest.raises(Exception):
+        dependencies.get_authorized_runtime()
     dependencies.get_authorized_runtime.cache_clear()

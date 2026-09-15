@@ -67,13 +67,9 @@ def get_authorized_runtime() -> AuthorizedModelRuntime:
     if provider_name == "ollama" and not is_local: raise RuntimeError("Ollama provider is restricted to loopback URLs")
     providers.register(OpenAICompatibleProvider(api_key=api_key or None, base_url=base_url, timeout_seconds=float(os.getenv("AI_PLATFORM_PROVIDER_TIMEOUT_SECONDS", "120"))))
     model_runtime = ModelRuntime(providers)
-    try:
-        client = get_supabase_server_client()
-        run_engine = RunEngine(model_runtime, SupabaseRunStore(client), RateLimitPolicy(SupabaseRateLimitStore(client)))
-        return AuthorizedModelRuntime(model_runtime, run_engine=run_engine, model_registry=get_model_registry(), approval_service=ApprovalService(client))
-    except Exception:
-        if os.getenv("VERCEL") == "1": raise
-        return AuthorizedModelRuntime(model_runtime, model_registry=get_model_registry())
+    client = get_supabase_server_client()
+    run_engine = RunEngine(model_runtime, SupabaseRunStore(client), RateLimitPolicy(SupabaseRateLimitStore(client)))
+    return AuthorizedModelRuntime(model_runtime, run_engine=run_engine, model_registry=get_model_registry(), approval_service=ApprovalService(client))
 
 
 def require_runtime() -> AuthorizedModelRuntime:

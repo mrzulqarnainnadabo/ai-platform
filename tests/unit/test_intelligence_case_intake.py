@@ -11,6 +11,7 @@ from ai_platform.intelligence.triage import parse_triage_output
 from ai_platform.policy.authorization import AuthorizationContext, Identity, Permissions
 from ai_platform.policy.capabilities import Capability
 from ai_platform.policy.errors import PolicyDeniedError
+from ai_platform.models.registry import ModelRegistry
 
 
 def auth(*caps: Capability, tenant: str = "tenant-a") -> AuthorizationContext:
@@ -105,7 +106,7 @@ def test_triage_requires_capability_before_model_call():
             raise AssertionError("model must not be called")
 
     with pytest.raises(PolicyDeniedError):
-        asyncio.run(service.triage(auth(Capability.CASE_READ), case.id, NeverCalled(), model_name="test"))
+        asyncio.run(service.triage(auth(Capability.CASE_READ), case.id, NeverCalled(), model_name="fast-general"))
 
 
 def test_triage_requires_model_generate_before_model_call():
@@ -123,7 +124,7 @@ def test_triage_requires_model_generate_before_model_call():
                 auth(Capability.CASE_TRIAGE),
                 case.id,
                 NeverCalled(),
-                model_name="test",
+                model_name="fast-general",
             )
         )
 
@@ -134,6 +135,7 @@ def test_triage_persists_model_assertions_and_questions():
     case = service.create(auth(Capability.CASE_CREATE), "Clinic has no medicines")
 
     class FakeRuntime:
+        model_registry = ModelRegistry()
         async def generate(self, *args, **kwargs):
             response = SimpleNamespace(message=Message(role="assistant", content=(
                 '{"assertions":[{"text":"Medicines are unavailable","kind":"claim"},'
@@ -152,7 +154,7 @@ def test_triage_persists_model_assertions_and_questions():
         ),
         case.id,
         FakeRuntime(),
-        model_name="test",
+        model_name="fast-general",
     ))
     model_assertions = [x for x in aggregate.assertions if x.created_by == "model"]
     assert [x.kind for x in model_assertions] == [AssertionKind.CLAIM, AssertionKind.INFERENCE]

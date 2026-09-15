@@ -14,8 +14,9 @@ class FakeResponse:
 
 def test_native_sse_stream_normalizes_chunks(monkeypatch):
     lines = [
-        b'data: ' + json.dumps({"id":"1","model":"m","choices":[{"message":{"role":"assistant","content":"A"},"finish_reason":None}]}).encode() + b'\n',
-        b'data: ' + json.dumps({"id":"1","model":"m","choices":[{"message":{"role":"assistant","content":"B"},"finish_reason":"stop"}]}).encode() + b'\n',
+        b'data: ' + json.dumps({"id":"1","model":"m","choices":[{"delta":{"role":"assistant","content":"A"},"finish_reason":None}]}).encode() + b'\n',
+        b'data: ' + json.dumps({"id":"1","model":"m","choices":[{"delta":{"content":"B"},"finish_reason":None}]}).encode() + b'\n',
+        b'data: ' + json.dumps({"id":"1","model":"m","choices":[{"delta":{},"finish_reason":"stop"}],"usage":{"prompt_tokens":12,"completion_tokens":7,"total_tokens":19}}).encode() + b'\n',
         b'data: [DONE]\n',
     ]
     monkeypatch.setattr(openai_compatible.urllib.request, "urlopen", lambda *a, **k: FakeResponse(lines))
@@ -25,4 +26,5 @@ def test_native_sse_stream_normalizes_chunks(monkeypatch):
         return [r async for r in provider.stream([Message(Role.USER, "hi")], ModelConfig("m"))]
 
     chunks = asyncio.run(run())
-    assert [c.message.content for c in chunks] == ["A", "B"]
+    assert [c.message.content for c in chunks[:2]] == ["A", "B"]
+    assert chunks[-1].usage.to_dict()["total_tokens"] == 19

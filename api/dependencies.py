@@ -32,7 +32,10 @@ def _resolve_cloud_provider_credentials() -> tuple[str, str]:
     return base_url, key
 
 
-def default_model_name() -> str: return (os.getenv("AI_PLATFORM_DEFAULT_MODEL") or "fast-general").strip()
+def default_model_name() -> str:
+    configured = (os.getenv("AI_PLATFORM_DEFAULT_MODEL") or "").strip()
+    if configured: return configured
+    return "grok-4.6" if (os.getenv("OPENAI_BASE_URL") or "").rstrip("/").lower() == "https://api.x.ai/v1" else "gpt-4o-mini"
 
 
 @lru_cache(maxsize=1)

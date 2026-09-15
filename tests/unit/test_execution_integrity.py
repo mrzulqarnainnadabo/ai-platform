@@ -86,7 +86,7 @@ class CancellationRuntime:
             ModelResponse(
                 Message(Role.ASSISTANT, "chunk"),
                 FinishReason.CANCELLED,
-                TokenUsage(12, 7, 19),
+                TokenUsage(0, 0, 0),
                 "mock",
                 "mock",
             ),

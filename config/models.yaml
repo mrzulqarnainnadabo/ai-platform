@@ -1,4 +1,4 @@
-# Client-visible ids are stable aliases. Change upstream model ids here, not in client requests.
+# Stable client-visible model aliases. Upstream provider/model identifiers are server-side.
 models:
   fast-general:
     provider: openai-compatible
@@ -8,11 +8,3 @@ models:
     output_cost_per_million: 0.0
     requests_per_minute: 30
     tokens_per_day: 100000
-  local-general:
-    provider: openai-compatible
-    model: llama3.1:8b
-    max_tokens: 4096
-    input_cost_per_million: 0.0
-    output_cost_per_million: 0.0
-    requests_per_minute: 120
-    tokens_per_day: 1000000

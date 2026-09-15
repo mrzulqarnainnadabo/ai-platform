@@ -3,7 +3,7 @@
   "version": 2,
   "functions": {
     "api/index.py": {
-      "includeFiles": ["config/models.yaml"],
+      "includeFiles": "config/models.yaml",
       "excludeFiles": "{tests/**,docs/**,.git/**,third_party/**,**/__pycache__/**,**/*.pyc,**/.pytest_cache/**,**/.mypy_cache/**,**/.ruff_cache/**,**/node_modules/**,**/*.bin,**/*.safetensors,**/*.pt,**/*.pth}"
     },
     "api/frontdoor.py": {

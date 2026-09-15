@@ -14,7 +14,7 @@ def test_vercel_has_one_modern_function_configuration_without_legacy_builds():
     config = json.loads((ROOT / "vercel.json").read_text(encoding="utf-8"))
     assert "builds" not in config
     assert set(config["functions"]) == {"api/index.py", "api/frontdoor.py"}
-    assert config["functions"]["api/index.py"]["includeFiles"] == ["config/models.yaml"]
+    assert config["functions"]["api/index.py"]["includeFiles"] == "config/models.yaml"
     for function in config["functions"].values():
         excluded = function["excludeFiles"]
         for pattern in ("tests/**", "docs/**", ".git/**", "third_party/**", "**/*.pyc"):

@@ -69,6 +69,24 @@ class RunEngine:
         chars = sum(len(m.get_text_content()) for m in messages)
         return max(1, min(max_tokens, (chars + 3) // 4 + max_tokens))
 
+    def _settle_with_retry(self, reservation: BudgetReservation, *, actual_tokens: int) -> None:
+        """Retry one transient settlement failure before failing execution.
+
+        The database operation is itself idempotent, so a retry is safe even if
+        the first request committed and the client lost the response.
+        """
+        if not self.rate_limits:
+            return
+        try:
+            self.rate_limits.settle(reservation, actual_tokens=actual_tokens)
+            return
+        except Exception as first_error:
+            try:
+                self.rate_limits.settle(reservation, actual_tokens=actual_tokens)
+                return
+            except Exception:
+                raise first_error
+
     async def generate(self, *, tenant_id: str, subject_id: str, model_policy: ModelPolicy,
                        messages: List[Message], config: ModelConfig,
                        context: Optional[ExecutionContext] = None) -> RunResult:
@@ -99,7 +117,7 @@ class RunEngine:
             settlement_tokens = usage["total_tokens"]
             cost = model_policy.estimate_cost(usage["prompt_tokens"], usage["completion_tokens"])
             if reservation and self.rate_limits:
-                self.rate_limits.settle(reservation, actual_tokens=settlement_tokens)
+                self._settle_with_retry(reservation, actual_tokens=settlement_tokens)
             self.store.complete(run_id=run_id, step_id=step_id, call_id=call_id, status="completed",
                                 usage=usage, cost_usd=cost,
                                 latency_ms=round((time.monotonic() - started) * 1000, 2))
@@ -108,10 +126,6 @@ class RunEngine:
             return RunResult(result.response, metadata, run_id)
         except Exception as exc:
             if reservation and self.rate_limits:
-                # The database settlement is now an atomic, durable state
-                # transition. Retrying here is intentional: it covers both a
-                # true settlement failure and the case where settlement
-                # committed but the client lost the response before completion.
                 try:
                     self.rate_limits.settle(
                         reservation,
@@ -170,7 +184,7 @@ class RunEngine:
                 settlement_tokens = accounting_tokens
             if reservation and self.rate_limits:
                 assert settlement_tokens is not None
-                self.rate_limits.settle(reservation, actual_tokens=settlement_tokens)
+                self._settle_with_retry(reservation, actual_tokens=settlement_tokens)
             cost = (model_policy.estimate_cost(usage["prompt_tokens"], usage["completion_tokens"])
                     if usage.get("usage_available", True) else 0.0)
             self.store.complete(run_id=run_id, step_id=step_id, call_id=call_id, status="completed",
@@ -179,9 +193,6 @@ class RunEngine:
         except Exception as exc:
             if reservation and self.rate_limits:
                 try:
-                    # If any usage was observed, settle to that durable amount;
-                    # otherwise release the full reservation. This is safe to
-                    # retry because the database transition is idempotent.
                     actual_tokens = settlement_tokens if settlement_tokens is not None else reservation.reserved_tokens
                     self.rate_limits.settle(reservation, actual_tokens=actual_tokens)
                 except Exception:

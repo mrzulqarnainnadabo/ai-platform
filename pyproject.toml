@@ -7,7 +7,10 @@ name = "ai-platform"
 version = "0.1.0"
 description = "Provider-neutral AI platform substrate"
 requires-python = ">=3.10"
-dependencies = []
+dependencies = [
+  "pydantic>=2,<3",
+  "PyYAML>=6.0,<7",
+]
 
 [tool.setuptools.packages.find]
 include = ["ai_platform*"]

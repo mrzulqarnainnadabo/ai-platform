@@ -27,25 +27,20 @@ def _is_loopback_base_url(value: str) -> bool:
 
 def _resolve_cloud_provider_credentials() -> tuple[str, str]:
     base_url = (os.getenv("OPENAI_BASE_URL") or "https://api.openai.com/v1").strip()
-    if base_url.rstrip("/").lower() == "https://api.x.ai/v1":
-        key = (os.getenv("XAI_API_KEY") or os.getenv("OPENAI_API_KEY") or "").strip()
-    else:
-        key = (os.getenv("OPENAI_API_KEY") or os.getenv("XAI_API_KEY") or "").strip()
+    if base_url.rstrip("/").lower() == "https://api.x.ai/v1": key = (os.getenv("XAI_API_KEY") or os.getenv("OPENAI_API_KEY") or "").strip()
+    else: key = (os.getenv("OPENAI_API_KEY") or os.getenv("XAI_API_KEY") or "").strip()
     return base_url, key
 
 
-def default_model_name() -> str:
-    return (os.getenv("AI_PLATFORM_DEFAULT_MODEL") or "fast-general").strip()
+def default_model_name() -> str: return (os.getenv("AI_PLATFORM_DEFAULT_MODEL") or "fast-general").strip()
 
 
 @lru_cache(maxsize=1)
-def get_auth_provider() -> SupabaseAuthContextProvider:
-    return SupabaseAuthContextProvider.from_environment()
+def get_auth_provider() -> SupabaseAuthContextProvider: return SupabaseAuthContextProvider.from_environment()
 
 
 @lru_cache(maxsize=1)
-def get_model_registry() -> ModelRegistry:
-    return ModelRegistry()
+def get_model_registry() -> ModelRegistry: return ModelRegistry()
 
 
 def require_auth(credentials: Annotated[HTTPAuthorizationCredentials | None, Depends(security)]) -> AuthorizationContext:
@@ -63,21 +58,19 @@ def get_authorized_runtime() -> AuthorizedModelRuntime:
     if provider_name == "ollama":
         base_url = (os.getenv("OPENAI_BASE_URL") or os.getenv("OLLAMA_BASE_URL") or "http://127.0.0.1:11434/v1").strip()
         api_key = (os.getenv("OLLAMA_API_KEY") or os.getenv("OPENAI_API_KEY") or "ollama").strip()
-    else:
-        base_url, api_key = _resolve_cloud_provider_credentials()
+    else: base_url, api_key = _resolve_cloud_provider_credentials()
     is_local = _is_loopback_base_url(base_url)
     if not api_key and not is_local: raise RuntimeError("Provider API key is required")
     if provider_name == "ollama" and not is_local: raise RuntimeError("Ollama provider is restricted to loopback URLs")
-    providers.register(OpenAICompatibleProvider(api_key=api_key or None, base_url=base_url,
-                                                timeout_seconds=float(os.getenv("AI_PLATFORM_PROVIDER_TIMEOUT_SECONDS", "120"))))
+    providers.register(OpenAICompatibleProvider(api_key=api_key or None, base_url=base_url, timeout_seconds=float(os.getenv("AI_PLATFORM_PROVIDER_TIMEOUT_SECONDS", "120"))))
     model_runtime = ModelRuntime(providers)
-    client = get_supabase_server_client()
-    return AuthorizedModelRuntime(
-        model_runtime,
-        run_engine=RunEngine(model_runtime, SupabaseRunStore(client), RateLimitPolicy(SupabaseRateLimitStore(client))),
-        model_registry=get_model_registry(),
-        approval_service=ApprovalService(client),
-    )
+    try:
+        client = get_supabase_server_client()
+        run_engine = RunEngine(model_runtime, SupabaseRunStore(client), RateLimitPolicy(SupabaseRateLimitStore(client)))
+        return AuthorizedModelRuntime(model_runtime, run_engine=run_engine, model_registry=get_model_registry(), approval_service=ApprovalService(client))
+    except Exception:
+        if os.getenv("VERCEL") == "1": raise
+        return AuthorizedModelRuntime(model_runtime, model_registry=get_model_registry())
 
 
 def require_runtime() -> AuthorizedModelRuntime:

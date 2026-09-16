@@ -1,4 +1,4 @@
-"""Vercel entrypoint: preserve the existing host and register intelligence routes."""
+"""FastAPI entrypoint: preserve the existing host and register intelligence routes."""
 from __future__ import annotations
 
 import uuid
@@ -12,17 +12,13 @@ from api.analytics import capture
 from api.original_index import app, handler
 from api.intelligence import router as intelligence_router
 from api.cases_auth_frontend import cases_auth_page
+from api.frontdoor import app_frontdoor
 
 app.include_router(intelligence_router)
 
 
 class ProductAnalyticsMiddleware:
-    """Secret-safe analytics middleware implemented as pure ASGI.
-
-    The previous implementation used Starlette BaseHTTPMiddleware around the
-    entire application. Pure ASGI middleware preserves streaming semantics and
-    avoids an additional response-wrapper layer around StreamingResponse.
-    """
+    """Secret-safe analytics middleware implemented as pure ASGI."""
 
     def __init__(self, app: Any) -> None:
         self.app = app
@@ -60,7 +56,6 @@ class ProductAnalyticsMiddleware:
         if scope.get("type") != "http":
             await self.app(scope, receive, send)
             return
-
         path = scope.get("path", "")
         method = scope.get("method", "GET")
         headers = scope.get("headers", [])
@@ -77,25 +72,18 @@ class ProductAnalyticsMiddleware:
                     "set-cookie",
                     f"ai_platform_analytics_id={distinct_id}; Max-Age={60 * 60 * 24 * 365}; Path=/; HttpOnly; Secure; SameSite=Lax",
                 )
-
                 if event:
                     if event == "case_triage_started":
                         capture(event, distinct_id, properties)
-                        capture(
-                            "case_triage_completed",
-                            distinct_id,
-                            {**properties, "success": 200 <= response_status < 300},
-                        )
+                        capture("case_triage_completed", distinct_id, {**properties, "success": 200 <= response_status < 300})
                     elif event in {"case_created", "evidence_added"}:
                         capture(event, distinct_id, {**properties, "success": 200 <= response_status < 300})
                     else:
                         capture(event, distinct_id, properties)
-
                 if response_status == 403:
                     capture("authorization_denied", distinct_id, {**properties, "status_code": 403})
                 elif response_status >= 500:
                     capture("api_error", distinct_id, {**properties, "status_code": response_status})
-
             await send(message)
 
         try:
@@ -105,13 +93,12 @@ class ProductAnalyticsMiddleware:
             raise
 
 
-# Pure ASGI middleware keeps StreamingResponse body frames on the native ASGI
-# path instead of wrapping them in BaseHTTPMiddleware's response channel.
 app.add_middleware(ProductAnalyticsMiddleware)
 
 
-# The case workspace is a browser shell only; authentication and authorization
-# happen through Supabase Auth + the protected /api/v1/cases API.
+@app.get("/app", include_in_schema=False)
+def intelligence_app_frontdoor() -> str:
+    return app_frontdoor()
 
 
 @app.get("/app/cases", include_in_schema=False)
@@ -119,7 +106,6 @@ def intelligence_cases_app() -> Response:
     return cases_auth_page()
 
 
-# Extend the existing OpenAPI security decoration to the new authenticated case routes.
 _base_openapi = app.openapi
 
 

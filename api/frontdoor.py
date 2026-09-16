@@ -25,7 +25,7 @@ def app_frontdoor() -> str:
     supabase_publishable_key = os.getenv("SUPABASE_PUBLISHABLE_KEY", "")
     config_error = "" if supabase_url and supabase_publishable_key else (
         "The app is not configured yet. The owner must set SUPABASE_URL and "
-        "SUPABASE_PUBLISHABLE_KEY in the Vercel environment, then redeploy."
+        "SUPABASE_PUBLISHABLE_KEY in the server environment, then redeploy."
     )
     return _page(supabase_url, supabase_publishable_key, config_error)
 

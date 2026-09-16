@@ -29,7 +29,8 @@ def get_supabase_server_client() -> Any:
 @lru_cache(maxsize=1)
 def get_case_repository() -> CaseRepository:
     configured = (os.getenv("INTEL_CASE_STORE") or "").strip().lower()
-    mode = configured or ("supabase" if os.getenv("VERCEL") == "1" else "memory")
+    hosted = bool(os.getenv("VERCEL") == "1" or os.getenv("RAILWAY_ENVIRONMENT") or os.getenv("RAILWAY_PROJECT_ID"))
+    mode = configured or ("supabase" if hosted else "memory")
     if mode in ("memory", "mem", "inmemory"):
         return InMemoryCaseRepository()
     if mode in ("supabase", "postgres", "pg"):

@@ -63,4 +63,13 @@ sb.auth.signUp=(credentials,options={})=>__aiPlatformSignUp(credentials,{
 </script>'''
 
     html = html.replace("</body>", auth_script + "</body>", 1)
-    return HTMLResponse(content=html, status_code=response.status_code, headers=dict(response.headers))
+
+    # cases_page() returns an HTMLResponse whose Content-Length describes the
+    # original HTML. We mutate that HTML above, so carrying the old header
+    # forward makes ASGI/h11 reject the larger response with:
+    # "Too much data for declared Content-Length". Let HTMLResponse recompute
+    # the length for the final body instead.
+    response_headers = dict(response.headers)
+    response_headers.pop("content-length", None)
+
+    return HTMLResponse(content=html, status_code=response.status_code, headers=response_headers)

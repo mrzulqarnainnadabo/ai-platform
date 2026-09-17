@@ -21,11 +21,20 @@ def test_vercel_has_one_modern_function_configuration_without_legacy_builds():
             assert pattern in excluded
 
 
-def test_vercel_uses_only_root_production_requirements():
+def test_vercel_declares_runtime_dependencies_in_the_effective_project_manifest():
     root_requirements = (ROOT / "requirements.txt").read_text(encoding="utf-8").lower()
     pyproject = (ROOT / "pyproject.toml").read_text(encoding="utf-8")
     assert not (ROOT / "api" / "requirements.txt").exists()
-    assert "dependencies = [\n]" in pyproject.replace("  # Runtime dependencies are intentionally centralized in requirements.txt,\n", "").replace("  # which is the single Vercel production dependency source.\n", "")
+    for dependency in (
+        "fastapi>=0.115,<1",
+        "starlette>=0.40",
+        "pydantic>=2",
+        "supabase>=2.28,<3",
+        "httpx>=0.27",
+        "mangum>=0.17,<1",
+        "pyyaml>=6.0,<7",
+    ):
+        assert dependency.lower() in pyproject.lower()
     assert all(package not in root_requirements for package in _FORBIDDEN_PACKAGES)
     assert "pyyaml" in root_requirements
 
